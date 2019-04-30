@@ -1,0 +1,557 @@
+---
+title: "WOSU Donor Data base analysis & Segmentation"
+author: "Shyni David"
+date: "3/1/2019"
+output: html_document
+---
+###Introduction
+WOSU’s primary source of funding comes from individual community support. With over 27,000 donors providing annual support equaling approximately $4 million with additional major and planned gift support, the development team seeks to develop a deeper understanding of our constituency.
+Currently, the development teams work out of multiple databases and static documents with a treasure trove of disparate data about our donors. From an analytics needs assessment, WOSU is at the base level of analytics and need to lay the foundation in order to further utilize our data for targeted fundraising approaches, but also to eventually build toward predictive modelling of future WOSU donors. 
+
+----In the winter of 2018, in our kick off meeting with WOSU team, Rob Walker said quote unquote "We do not know who our donors are. We would like to know who they are. " 
+
+###Objective
+WOSU’s primary source of funding comes from individual community support. Their development team is seeking to develop a deeper understanding of  the constituencies by using data analytics in understanding the past and projecting the future. When donors approach philanthropy, their gifts are thoughtful and has intended purposes and seek a return on their philanthropic investments.  
+A pertinent question is  why do they give to WOSU? WOSU has a wide variety of fundraising programs through events, radio, TV , web, emails and personal contact.  Which of these tasks contribute to increased giving? Which tasks detract from the fundraising success? What is the spread of the donors across  the country? What should the campaign goal be? What are the factors for their success?  
+The exploratory data analysis will be used to investigate the trends. The statistical tools and techniques will help to interpret the data and build models to increase the predictability, thus empowering WOSU to strategically invest their resources in increasing the scalability and sustainability of donations.
+
+
+###Dataset
+There are 3 Datasets provided by WOSU:  
+1.	2000-2009 – 33740 observations (represents Original Donations), 22 variables/attributes  
+2.	2010-2018- 36361 observations(represents Original Donations), 22variables/attributes  
+3.	Event files – 22 Text file corresponding to some events since 2014 with the names  and date and other  related information.   
+
+
+#####Importing the necessary libraries
+
+```{r results = 'hide', message = FALSE, warning = FALSE}
+#install.packages("MASS")
+library(MASS)
+#install.packages("tidyverse")
+library(tidyverse)
+#install.packages("sqldf")
+library(sqldf)
+#install.packages("lubridate")
+library(lubridate)
+#install.packages("dplyr")
+library(dplyr)
+#install.packages("plyr")
+library(plyr)
+#install.packages("readxl")
+library(readxl)
+#install.packages("ggplot2")
+library(ggplot2)
+library(scales)
+library(stringr)
+#install.packages("USAboundaries")
+library(USAboundaries)
+#install.packages("gender")
+library(gender)
+#install.packages("caret")
+library(caret)
+ library(glmnet)
+library(gridExtra)
+#install.packages("VIM")
+library(VIM)
+library(lubridate)
+library(grid)
+#install.packages("XML")
+library(XML)
+#install.packages("httr")
+library("httr")
+#install.packages("VIM")
+library(VIM)
+#install.packages("car")
+library(car)
+#install.packages("rpart.plot")
+library(rpart.plot)
+library(caretEnsemble) # for Stacking
+#install.packages("doParallel")
+library(doParallel)  # parallel processing
+#install.packages("nnet")
+library(nnet) # for multinomial logit
+#install.packages("NeuralNetTools") 
+library(NeuralNetTools)
+library(ggplot2)
+library(scales)
+ 
+load("~/Desktop/FISHER SMB-A/capstone/SMB-A Capstone Project/Files 042619.RData")
+```
+
+
+
+Prepare Models- US - individuals
+```{r}
+# test run model
+#Model_01  
+model_01 <- lm(logDonation ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund + GS_tv + GS_web   + GS_mail + GS_cba + GS_oa + SM_onair + SM_autoren + SM_other + SM_web + SM_directmail + SM_email   + SM_online    + ST_acq + ST_ren + ST_othr + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = y_final_02)
+
+summary(model_01)
+ 
+
+# removing high Collinearity
+
+model_01x <- lm(logDonation ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other    + SM_email   + SM_online    + SM_telemkt +  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = y_final_02)
+
+summary(model_01x)
+vif(model_01x)
+#plot(model_01x)
+
+model_02x <- lm(logDonation ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa    + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode + Region + Division , data = y_final_02)
+
+summary(model_02x)
+vif(model_02x)
+#plot(model_02x)
+
+ 
+
+```
+
+
+
+
+**Set up for parallel processing**
+
+```{r, warning = F, message = F}
+
+numberofcores = detectCores() # get the number of cores (to create a cluster)
+cl <- makeCluster(numberofcores-1) # make a cluster; allocating all but one core
+registerDoParallel(cl)  
+
+```
+
+ 
+Train and Test Model- Individuals  File
+```{r}
+
+set.seed(123)
+training.samples <- y_final_02$logDonation %>%
+  createDataPartition(p = 0.75, list = FALSE)
+train.data  <- y_final_02[training.samples, ]
+test.data <- y_final_02[-training.samples, ]
+
+#1.Build ElasticNet regression model(Will have both Lasso and Ridge)
+
+set.seed(1234)
+lambda <- 10^seq(-3, 3, length = 100)
+elastic_model_01x  <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other +SM_online   + SM_email      + SM_telemkt +  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = train.data, method = "glmnet",  trControl = trainControl("cv", number = 10, savePredictions = "all"),  tuneLength = 10,  #default value is 3
+tuneGrid = expand.grid(alpha = seq(0,1,by=0.1), lambda = lambda))
+
+#To investigate "There were missing values in resampled performance measures.""
+#This error happens when the model didn't converge in some cross-validation folds the predictions #get zero variance. As a result, the metrics like RMSE or Rsquared can't be calculated so they #become NAs. Sometimes there are parameters you can tune for better convergence, e.g. the #neuralnet library offers to increase threshold which almost always leads to convergence.
+
+#In order to investigate what is going on in more detail one should add the argument #savePredictions = "all" to trainControl:
+
+elastic_model_01x$results
+ #we notice the problem occurs when decay = 0.
+ #Make predictions on test data
+predictions_01x <- predict(elastic_model_01x , newdata=test.data)
+# Model performance - RMSE and Rsquare
+pelastic_01x <- data.frame(RMSE = RMSE(predictions_01x , test.data$logDonation), Rsquare = R2(predictions_01x , test.data$logDonation))
+pelastic_01x
+
+
+#####
+elastic_model_02x  <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa    + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode + Region + Division, data = train.data, method = "glmnet",  trControl = trainControl("cv", number = 10, savePredictions = "all"),  tuneLength = 10,  #default value is 3
+tuneGrid = expand.grid(alpha = seq(0,1,by=0.1), lambda = lambda))
+
+elastic_model_02x$results
+#Make predictions on test data
+predictions_02x <- predict(elastic_model_02x , newdata=test.data)
+# Model performance - RMSE and Rsquare
+pelastic_02x <- data.frame(RMSE = RMSE(predictions_02x , test.data$logDonation), Rsquare = R2(predictions_02x , test.data$logDonation))
+pelastic_02x
+
+
+##################################################################
+ 
+#2. Regression Tree 
+
+set.seed(1234)
+tree2 <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other    + SM_email +SM_online     + SM_telemkt +  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = train.data, method = "rpart",    
+               trControl = trainControl("cv", number = 10),
+               tuneLength=15) # increased tuneLength to 15 since cp selected with 10 was at the lowest end of values tested
+tree2 
+
+tree2$results
+
+# Make predictions on test data
+predicttree2 <- predict(tree2, newdata=test.data)     
+
+# Model performance - RMSE and Rsquare
+ptree2 <- data.frame(RMSE = RMSE(predicttree2, test.data$logDonation), Rsquare = R2(predicttree2, test.data$logDonation))
+ptree2
+
+rpart.plot(tree2$finalModel)
+#plot performace relative to tuning parameter cp
+plot(tree2)
+
+#3. Neural Network 
+#If in some cross-validation folds the predictions get zero variance, the model didn't converge. #In such cases, you can try the neuralnet package which offers two parameters you can tune:
+#1.	threshold : default value = 0.01. Set it to 0.3 and then try lower values 0.2, 0.1, 0.05.
+#2.	stepmax : default value = 1e+05. Set it to 1e+08 and then try lower values 1e+07, 1e+06.
+set.seed(1234) 
+
+neural2 <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other    + SM_email + SM_telemkt  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = train.data, method="nnet", 
+                 preProcess = "range",  linout=TRUE, trace=FALSE, threshold =  0.3,
+                 trControl = trainControl("cv", number = 10), tuneLength = 10) # tuneLength  
+ 
+print(neural2)
+
+
+set.seed(1234) 
+neural3 <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa    + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode + Region + Division, data = train.data, method="nnet", 
+                 preProcess = "range",  linout=TRUE, trace=FALSE, threshold =  0.3,
+                 trControl = trainControl("cv", number = 10), tuneLength = 10) # tuneLength  
+ 
+print(neural3)
+
+
+
+#plot relative feature importance
+garson(neural2$finalModel) + theme(axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())  
+
+#plot relative feature importance
+garson(neural3$finalModel) + theme(axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())  
+
+
+# Make predictions on test data
+predictneural2 <- predict(neural2, newdata=test.data)                        
+# Model performance - RMSE and Rsquare
+pneural2 <- data.frame(RMSE = RMSE(predictneural2, test.data$logDonation), Rsquare = R2(predictneural2, test.data$logDonation))
+pneural2
+
+# Make predictions on test data
+predictneural3 <- predict(neural3, newdata=test.data)                        
+# Model performance - RMSE and Rsquare
+pneural3 <- data.frame(RMSE = RMSE(predictneural3, test.data$logDonation), Rsquare = R2(predictneural3, test.data$logDonation))
+pneural3
+ 
+
+##########################################
+#4. Ensemble - BAGGING
+
+#4a. Random Forest 
+set.seed(1234)
+rf2 <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other    + SM_email + SM_telemkt +  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = train.data, method = "rf", 
+                  trControl = trainControl("cv", number = 10))
+
+# Make predictions on test data
+predictrf2 <- predict(rf2, newdata= test.data)
+# Model performance - RMSE and Rsquare
+prf2 <- data.frame(RMSE = RMSE(predictrf2,  test.data$logDonation), Rsquare = R2(predictrf2, test.data$logDonation))
+prf2
+
+
+#5. Ensemble - BOOSTING
+#5a. Gradient Boosted Tree 
+
+set.seed(1234)
+gbmtree2 <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other    + SM_email + SM_telemkt +  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = train.data, method = "gbm",  
+                  trControl = trainControl("cv", number = 10), tuneLength = 10) # tuneLength increased to 10 since hyper parameters optimized were at the highest end of values tested
+# gbmtree2 # suppressed to prevent long output
+
+# Make predictions on test data
+predictgbmtree2 <- predict(gbmtree2, newdata= test.data)
+
+# Model performance - RMSE and Rsquare
+pgbmtree2 <- data.frame(RMSE = RMSE(predictgbmtree2, test.data$logDonation), Rsquare = R2(predictgbmtree2, test.data$logDonation))
+pgbmtree2
+
+
+#5b. (eXtreme) Gradient Boosted Tree 
+
+set.seed(1234)
+xgb2 <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other    + SM_email + SM_telemkt +  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = train.data, method = "xgbTree",  trControl = trainControl("cv", number = 10), tuneLength = 5) # tuneLength changed to 5 since hyperparameters optimized were at the extremes of the values tested
+# xgb2 # suppressed to prevent long output
+
+# Make predictions on test data
+predictxgb2 <- predict(xgb2, newdata=test.data)
+
+# Model performance - RMSE and Rsquare
+pxgb2 <- data.frame(RMSE = RMSE(predictxgb2, test.data$logDonation), Rsquare = R2(predictxgb2, test.data$logDonation))
+pxgb2
+ 
+
+set.seed(1234)
+#no missing values error
+xgb3 <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa    + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode + Region + Division, data = train.data, method = "xgbTree",  trControl = trainControl("cv", number = 10), tuneLength = 5) 
+
+# Make predictions on test data
+predictxgb3 <- predict(xgb3, newdata=test.data)
+
+# Model performance - RMSE and Rsquare
+pxgb3 <- data.frame(RMSE = RMSE(predictxgb3, test.data$logDonation), Rsquare = R2(predictxgb3, test.data$logDonation))
+pxgb3
+
+
+
+
+# Ensemble - STACKING
+my_control <- trainControl(method = "cv", # for “cross-validation”
+                           number = 10, # number of k-folds
+                           savePredictions = "final",
+                           allowParallel = TRUE)
+
+# train a list of models all at the same time  
+set.seed(1234)
+model_list2 <- caretList(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other    + SM_email + SM_telemkt +  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = train.data, trControl = my_control,
+                        #methodList = c(  "glmnet", "rpart", "nnet"),
+                        tuneList=list(glmnet=caretModelSpec(method="glmnet", tuneLength=10), rpart=caretModelSpec(method="rpart", tuneLength=15), nnet=caretModelSpec(method="nnet", trace=FALSE, tuneLength=10)),
+                        continue_on_fail = FALSE, 
+                        preProcess = c("center", "scale"))
+
+#compare the models based on resampling
+results2 <- resamples(model_list2)
+summary(results2)
+
+# Determine correlation between models to identify those that are uncorrelated and can be used for emsemble
+modelCor(results2)
+
+#rpart and glmnet are highly correlated- keeping rpart as has low RMSE
+model_list2 <- caretList(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other    + SM_email + SM_telemkt +  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = train.data, trControl = my_control,
+                        #methodList = c( "rpart", "nnet"),
+                        tuneList=list(  rpart=caretModelSpec(method="rpart", tuneLength=15), nnet=caretModelSpec(method="nnet", trace=FALSE, tuneLength=10)),
+                        continue_on_fail = FALSE, 
+                        preProcess = c("center", "scale"))
+
+#compare the models based on resampling
+results2 <- resamples(model_list2)
+summary(results2)
+
+# Determine correlation between models to identify those that are uncorrelated and can be used for emsemble
+modelCor(results2)
+splom(results2)
+
+#Lets combine the predictions of the classifiers using a simple linear model
+stackControl <- trainControl(method = "repeatedcv", number = 10, repeats = 3, savePredictions = TRUE )
+set.seed(1234)
+stack.glm <- caretStack(model_list2, method = "glm", metric = "RMSE", trControl = stackControl)
+print(stack.glm)
+
+#stack using random forest
+set.seed(1234)
+stack.rf <- caretStack(model_list2, method = "rf", metric = "RMSE", trControl = stackControl)
+print(stack.rf)
+
+ #stack using extreme gradient boosted tree
+set.seed(1234)
+stack.xgb <- caretStack(model_list2, method = "xgbTree", metric = "RMSE", trControl = stackControl)
+print(stack.xgb)
+ 
+
+ #stack using extreme elasticnet
+
+set.seed(1234)
+stack.glmnet <- caretStack(model_list2, method = "glmnet", metric = "RMSE", trControl = stackControl)
+print(stack.glmnet)
+```
+
+
+
+**Compare performance of regression models**
+
+
+```{r, warning = F, message = F}
+
+set.seed(1234)
+models2 <- list(  tree = tree2, neural = neural2, neural3 = neural3,  randomForest = rf2, gradientBoost = gbmtree2,   xgb3 = xgb3, xgb2 = xgb2,   elastic_02x = elastic_model_02x , elastic_01x = elastic_model_01x   )
+compare2 <- resamples(models2)
+summary(compare2)
+summary(compare2, metric="RMSE")
+bwplot(compare2, metric="RMSE")
+
+# Here again, the XGB model shows the best performance in terms of lowest RMSE and highest #R-squared value.
+
+# Since the XGB model is a complex ensemble model, perform statistical tests to see if it is #significantly different from the other models, especially simpler models. First, perform and #one-way ANOVA to see if at least one model was different from the others
+compareValues2 <- as.data.frame(compare2$values) %>%
+        select(Resample, ends_with("RMSE")) 
+
+compareValuesStat2 <- compareValues2 %>%
+        select(-Resample) %>%
+        stack()
+
+annova2 <- aov(values ~ ind, data = compareValuesStat2)
+summary(annova2)
+
+# models are statistically different from each other. Confirm using pairwise t-test
+#we don't know which pairs of groups are different
+#it is possible to perform multiple pairwise-comparison to determine if the mean difference between specific pais of group are statistically significant.
+
+#Tukey multiple pairwise comparisons
+TukeyHSD(annova2)
+
+#diff-Difference between means of two groups
+#lwr, upr - The lower and upper end point of confidence interval
+#p-adj - p value after adjustment for multiple comparisons
+
+ #Pairwise t-test with no suumption of equal variance
+pairwise.t.test(compareValuesStat2$values, compareValuesStat2$ind,
+                p.adjust.method = "BH")
+
+
+#############
+
+# Compare all models on the hold-out/Test partition
+
+regresssionTest <- rbind(pelastic_01x, pelastic_02x, ptree2, pneural2, pneural3,  prf2, pgbmtree2, pxgb2, pxgb3) %>%
+        mutate(Model = c("Elastic1", "Elastic2", "Classification Tree", "Neural Net", "Neural Net3", "Random Forest", "Gradient Boosted Tree", "eXtreme Gradient Boosted Tree1", "eXtreme Gradient Boosted Tree2")) %>%
+        select(Model, RMSE, Rsquare) %>%
+        arrange(RMSE, -Rsquare)
+regresssionTest
+
+```
+
+
+
+
+**Stop parallel processing**
+
+```{r, warning = F, message = F}
+
+stopCluster(cl) #shut down the cluster
+registerDoSEQ() #switch back to sequential execution
+
+```
+
+
+
+
+#####Model2 - Organizational Donors ( from 2000-2018)
+ 
+Prepare file for Model
+```{r}
+ 
+ 
+  x  <- GOrg_root_03 %>%  select(Gift_Month, Gift_Year,  Original_Gift_Source, Solicitation_Method,  Original_Gift_Amount, Solicitation_Type ,Original_Gift_Mode, Orig_Gift_Has_Prm, City, Account_Status, State, Region, Division)
+
+ 
+#add dummy variables for Original Gift Source
+z_01 <- x %>% mutate(GS_radio = ifelse(Original_Gift_Source == "radio", 1, 0))
+z_02 <- z_01 %>% mutate(GS_acquisition = ifelse(Original_Gift_Source == "acquisition", 1, 0))
+z_03 <- z_02 %>% mutate(GS_mail = ifelse(Original_Gift_Source == "mail", 1, 0))
+z_04 <- z_03 %>% mutate(GS_otwhite = ifelse(Original_Gift_Source == "otwhite", 1, 0))
+z_05 <- z_04 %>% mutate(GS_specialopportunity = ifelse(Original_Gift_Source == "special opportunity", 1, 0))
+z_06 <- z_05 %>% mutate(GS_yearend = ifelse(Original_Gift_Source == "yearend", 1, 0))
+z_07 <- z_06 %>% mutate(GS_newyear = ifelse(Original_Gift_Source == "newyear", 1, 0))
+z_08 <- z_07 %>% mutate(GS_showcase = ifelse(Original_Gift_Source == "showcase", 1, 0))
+z_09 <- z_08 %>% mutate(GS_passport = ifelse(Original_Gift_Source == "passport", 1, 0))
+z_10 <- z_09 %>% mutate(GS_annfund = ifelse(Original_Gift_Source == "annual fund", 1, 0))
+z_11 <- z_10 %>% mutate(GS_tv = ifelse(Original_Gift_Source == "tv", 1, 0))
+z_12 <- z_11 %>% mutate(GS_web = ifelse(Original_Gift_Source == "web", 1, 0))
+
+
+# add dummy variables for Solicitation method 
+z_13 <- z_12  %>%  mutate(SM_onair = ifelse(Solicitation_Method == "On Air", 1, 0))
+z_14 <- z_13 %>%  mutate(SM_autoren = ifelse(Solicitation_Method == "Auto Renewal", 1, 0))
+z_15 <- z_14 %>%  mutate(SM_other = ifelse(Solicitation_Method == "Other", 1, 0))
+ z_16 <- z_15 %>%  mutate(SM_web = ifelse(Solicitation_Method == "Web", 1, 0))
+z_17 <- z_16 %>%  mutate(SM_directmail = ifelse(Solicitation_Method == "Direct Mail", 1, 0))
+z_18 <- z_17 %>%  mutate(SM_email = ifelse(Solicitation_Method == "Email", 1, 0))
+z_19 <- z_18 %>%  mutate(SM_perscont = ifelse(Solicitation_Method == "Personal Contact", 1, 0))
+z_20 <- z_19 %>%  mutate(SM_online = ifelse(Solicitation_Method == "Online", 1, 0))
+z_21 <- z_20 %>%  mutate(SM_telemkt = ifelse(Solicitation_Method == "Telemarketing", 1, 0)) 
+
+z_22 <- z_21 %>%  mutate(ST_acq = ifelse(Solicitation_Type == "Acquisition", 1, 0)) 
+z_23 <- z_22 %>%  mutate(ST_ren = ifelse(Solicitation_Type == "Renewal", 1, 0)) 
+z_24 <- z_23 %>%  mutate(ST_othr = ifelse(Solicitation_Type == "Other", 1, 0)) 
+z_25 <- z_24 %>%  mutate(ST_exp = ifelse(Solicitation_Type == "Expired", 1, 0)) 
+z_26 <- z_25 %>%  mutate(ST_addgift = ifelse(Solicitation_Type == "Additional Gift", 1, 0)) 
+
+z_27 <- z_26 %>% mutate(GS_cba = ifelse(Original_Gift_Source == "cba", 1, 0))
+z_28 <- z_27 %>% mutate(GS_oa = ifelse(Original_Gift_Source == "openask", 1, 0))
+
+z_final<- z_28
+ 
+
+sapply(z_final , function(x) sum(is.na(x)))
+
+str(z_final)
+ 
+z_final$Account_Status <- as.factor(z_final$Account_Status)
+z_final$Orig_Gift_Has_Prm <- as.factor(z_final$Orig_Gift_Has_Prm)
+z_final$City <- as.factor(z_final$City)
+z_final_01 <- z_final %>% mutate(logDonation = log(Original_Gift_Amount))
+str(z_final_01)
+z_final_02 <- z_final_01 %>% select(-3,-4,-5,-6)
+
+```
+
+
+Prepare Models- US - Organizations
+```{r}
+# test run model
+#Model_01  
+model_z01x <- lm(logDonation ~ Gift_Month + Gift_Year  + GS_acquisition   + GS_otwhite +   GS_specialopportunity    + GS_tv        + SM_other         + Orig_Gift_Has_Prm +Account_Status +  Region    + Original_Gift_Mode , data = z_final_02)
+
+summary(model_z01x)
+vif(model_z01x)
+ 
+
+```
+
+
+Train and Test Model- Organizational donors
+```{r}
+
+set.seed(1234)
+training.samples <- z_final_02$logDonation %>%
+  createDataPartition(p = 0.75, list = FALSE)
+trainz.data  <- z_final_02[training.samples, ]
+testz.data <- z_final_02[-training.samples, ]
+
+
+
+
+#"There were missing values in resampled performance measures."This error happens when the #model didn't converge in some cross-validation folds the predictions get zero variance. As a #result, the metrics like RMSE or Rsquared can't be calculated so they become NAs. Sometimes #there are parameters you can tune for better convergence, e.g. the neuralnet library offers #to increase threshold which almost always leads to convergence. Yet, I'm not sure about the #rpart library.
+
+#Another reason for this to happen is that you have already NAs in your training data. Then #the obvious cure is to remove them before passing them by train(data = #na.omit(training.data)).
+
+#To investigate "There were missing values in resampled performance measures.""
+#This error happens when the model didn't converge in some cross-validation folds the predictions #get zero variance. As a result, the metrics like RMSE or Rsquared can't be calculated so they #become NAs. Sometimes there are parameters you can tune for better convergence, e.g. the #neuralnet library offers to increase threshold which almost always leads to convergence.
+
+#In order to investigate what is going on in more detail one should add the argument #savePredictions = "all" to trainControl:
+
+
+#3. Neural Network 
+#If in some cross-validation folds the predictions get zero variance, the model didn't converge. #In such cases, you can try the neuralnet package which offers two parameters you can tune:
+#1.	threshold : default value = 0.01. Set it to 0.3 and then try lower values 0.2, 0.1, 0.05.
+#2.	stepmax : default value = 1e+05. Set it to 1e+08 and then try lower values 1e+07, 1e+06.
+ 
+
+ 
+set.seed(1234) 
+
+neural2z <- train(logDonation  ~   Gift_Month + Gift_Year  + GS_acquisition   + GS_otwhite +   GS_specialopportunity    + GS_tv   + SM_other   +  Region    + Original_Gift_Mode   , data = trainz.data, method="nnet", preProcess = "range",  linout=TRUE, threshold =  0.1,
+                 trControl = trainControl("cv", number = 10), tuneLength = 10) # tuneLength  
+ 
+print(neural2z)
+
+# Make predictions on test data
+predictneural2z <- predict(neural2z, newdata=testz.data)                        
+
+# Model performance - RMSE and Rsquare
+pneural2z <- data.frame(RMSE = RMSE(predictneural2z, testz.data$logDonation), Rsquare = R2(predictneural2z, testz.data$logDonation))
+pneural2z
+
+ 
+
+ 
+#5b. (eXtreme) Gradient Boosted Tree 
+
+set.seed(1234)
+xgb2z <- train(logDonation  ~ Gift_Month + Gift_Year  + GS_acquisition   + GS_otwhite +   GS_specialopportunity    + GS_tv   + SM_other   +  Region    + Original_Gift_Mode, data = trainz.data, method = "xgbTree",  trControl = trainControl("cv", number = 10), tuneLength = 5) # tuneLength changed to 5 since hyperparameters optimized were at the extremes of the values tested
+# xgb2 # suppressed to prevent long output
+
+# Make predictions on test data
+predictxgb2z <- predict(xgb2z, newdata=testz.data)
+
+# Model performance - RMSE and Rsquare
+pxgb2z <- data.frame(RMSE = RMSE(predictxgb2z, testz.data$logDonation), Rsquare = R2(predictxgb2z, testz.data$logDonation))
+pxgb2z
+ 
+
+ 
+```
+
