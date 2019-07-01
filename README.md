@@ -1,3 +1,3 @@
 # Capstone-Project-SMBA
-Capstone Project- WOSU Donor Database Analysis and Segmentation
-Presentation - June 22, 2019
+Capstone Project- WOSU Public Media Donor Database Analysis and Segmentation
+ 
