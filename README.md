@@ -17,5 +17,5 @@ WOSU is a public media enterprise serving Central Ohio and has consistently exce
   
 ##  Acknowledgements
   Prof.  Waleed Muhanna, Ph.D. Fisher College of Business, The Ohio State University  
-  Prof. Greg Allenby, Ph.D. Fisher College of Business, The Ohio State University 
+  Prof. Greg Allenby, Ph.D. Fisher College of Business, The Ohio State University  
   WOSU Public Media 
