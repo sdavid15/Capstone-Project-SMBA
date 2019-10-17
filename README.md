@@ -13,7 +13,7 @@ WOSU is a public media enterprise serving Central Ohio and has consistently exce
 
 ## Through process and methods:
 
-# 1.	Analyzing and Identifying meaningful and redundant variables
+### 1.	Analyzing and Identifying meaningful and redundant variables
 
 # 2.	Data wrangling   
 a. Formatting the fields - use separate, unite, fix date field, 
