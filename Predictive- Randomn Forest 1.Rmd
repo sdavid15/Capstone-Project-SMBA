@@ -1,0 +1,214 @@
+---
+title: "Predictive- Randomn Forest 1"
+author: "Shyni David"
+date: "5/13/2019"
+output: html_document
+---
+
+  
+ 
+ 
+###Introduction
+WOSU’s primary source of funding comes from individual community support. With over 27,000 donors providing annual support equaling approximately $4 million with additional major and planned gift support, the development team seeks to develop a deeper understanding of our constituency.
+Currently, the development teams work out of multiple databases and static documents with a treasure trove of disparate data about our donors. From an analytics needs assessment, WOSU is at the base level of analytics and need to lay the foundation in order to further utilize our data for targeted fundraising approaches, but also to eventually build toward predictive modelling of future WOSU donors. 
+
+----In the winter of 2018, in our kick off meeting with WOSU team, Rob Walker said quote unquote "We do not know who our donors are. We would like to know who they are. " 
+
+###Objective
+WOSU’s primary source of funding comes from individual community support. Their development team is seeking to develop a deeper understanding of  the constituencies by using data analytics in understanding the past and projecting the future. When donors approach philanthropy, their gifts are thoughtful and has intended purposes and seek a return on their philanthropic investments.  
+A pertinent question is  why do they give to WOSU? WOSU has a wide variety of fundraising programs through events, radio, TV , web, emails and personal contact.  Which of these tasks contribute to increased giving? Which tasks detract from the fundraising success? What is the spread of the donors across  the country? What should the campaign goal be? What are the factors for their success?  
+The exploratory data analysis will be used to investigate the trends. The statistical tools and techniques will help to interpret the data and build models to increase the predictability, thus empowering WOSU to strategically invest their resources in increasing the scalability and sustainability of donations.
+
+
+###Dataset
+There are 3 Datasets provided by WOSU:  
+1.	2000-2009 – 33740 observations (represents Original Donations), 22 variables/attributes  
+2.	2010-2018- 36361 observations(represents Original Donations), 22variables/attributes  
+3.	Event files – 22 Text file corresponding to some events since 2014 with the names  and date and other  related information.   
+
+
+#####Importing the necessary libraries
+
+```{r results = 'hide', message = FALSE, warning = FALSE}
+#install.packages("MASS")
+library(MASS)
+#install.packages("tidyverse")
+library(tidyverse)
+#install.packages("sqldf")
+library(sqldf)
+#install.packages("lubridate")
+library(lubridate)
+#install.packages("dplyr")
+library(dplyr)
+#install.packages("plyr")
+library(plyr)
+#install.packages("readxl")
+library(readxl)
+#install.packages("ggplot2")
+library(ggplot2)
+library(scales)
+library(stringr)
+#install.packages("USAboundaries")
+library(USAboundaries)
+#install.packages("gender")
+library(gender)
+#install.packages("caret")
+library(caret)
+ library(glmnet)
+library(gridExtra)
+#install.packages("VIM")
+library(VIM)
+library(lubridate)
+library(grid)
+#install.packages("XML")
+library(XML)
+#install.packages("httr")
+library("httr")
+#install.packages("VIM")
+library(VIM)
+#install.packages("car")
+library(car)
+#install.packages("rpart.plot")
+library(rpart.plot)
+library(caretEnsemble) # for Stacking
+#install.packages("doParallel")
+library(doParallel)  # parallel processing
+#install.packages("nnet")
+library(nnet) # for multinomial logit
+ 
+library(ggplot2)
+library(scales)
+ 
+load("~/Desktop/FISHER SMB-A/capstone/SMB-A Capstone Project/0504 files pre process.RData")
+
+```
+
+
+
+Prepare file for Model
+```{r}
+ 
+ 
+  x  <- Final_file_kNN %>%  select(Gift_Month, Gift_Year, gender, Original_Gift_Source, Solicitation_Method,  Original_Gift_Amount, Solicitation_Type ,Original_Gift_Mode, Orig_Gift_Has_Prm, City, Account_Status, State, Region, Division)
+
+ 
+#add dummy variables for Original Gift Source
+y_01 <- x %>% mutate(GS_radio = ifelse(Original_Gift_Source == "radio", 1, 0))
+y_02 <- y_01 %>% mutate(GS_acquisition = ifelse(Original_Gift_Source == "acquisition", 1, 0))
+y_03 <- y_02 %>% mutate(GS_mail = ifelse(Original_Gift_Source == "mail", 1, 0))
+y_04 <- y_03 %>% mutate(GS_otwhite = ifelse(Original_Gift_Source == "otwhite", 1, 0))
+y_05 <- y_04 %>% mutate(GS_specialopportunity = ifelse(Original_Gift_Source == "special opportunity", 1, 0))
+y_06 <- y_05 %>% mutate(GS_yearend = ifelse(Original_Gift_Source == "yearend", 1, 0))
+y_07 <- y_06 %>% mutate(GS_newyear = ifelse(Original_Gift_Source == "newyear", 1, 0))
+y_08 <- y_07 %>% mutate(GS_showcase = ifelse(Original_Gift_Source == "showcase", 1, 0))
+y_09 <- y_08 %>% mutate(GS_passport = ifelse(Original_Gift_Source == "passport", 1, 0))
+y_10 <- y_09 %>% mutate(GS_annfund = ifelse(Original_Gift_Source == "annual fund", 1, 0))
+y_11 <- y_10 %>% mutate(GS_tv = ifelse(Original_Gift_Source == "tv", 1, 0))
+y_12 <- y_11 %>% mutate(GS_web = ifelse(Original_Gift_Source == "web", 1, 0))
+
+
+# add dummy variables for Solicitation method 
+y_13 <- y_12  %>%  mutate(SM_onair = ifelse(Solicitation_Method == "On Air", 1, 0))
+y_14 <- y_13 %>%  mutate(SM_autoren = ifelse(Solicitation_Method == "Auto Renewal", 1, 0))
+y_15 <- y_14 %>%  mutate(SM_other = ifelse(Solicitation_Method == "Other", 1, 0))
+ y_16 <- y_15 %>%  mutate(SM_web = ifelse(Solicitation_Method == "Web", 1, 0))
+y_17 <- y_16 %>%  mutate(SM_directmail = ifelse(Solicitation_Method == "Direct Mail", 1, 0))
+y_18 <- y_17 %>%  mutate(SM_email = ifelse(Solicitation_Method == "Email", 1, 0))
+y_19 <- y_18 %>%  mutate(SM_perscont = ifelse(Solicitation_Method == "Personal Contact", 1, 0))
+y_20 <- y_19 %>%  mutate(SM_online = ifelse(Solicitation_Method == "Online", 1, 0))
+y_21 <- y_20 %>%  mutate(SM_telemkt = ifelse(Solicitation_Method == "Telemarketing", 1, 0)) 
+
+y_22 <- y_21 %>%  mutate(ST_acq = ifelse(Solicitation_Type == "Acquisition", 1, 0)) 
+y_23 <- y_22 %>%  mutate(ST_ren = ifelse(Solicitation_Type == "Renewal", 1, 0)) 
+y_24 <- y_23 %>%  mutate(ST_othr = ifelse(Solicitation_Type == "Other", 1, 0)) 
+y_25 <- y_24 %>%  mutate(ST_exp = ifelse(Solicitation_Type == "Expired", 1, 0)) 
+y_26 <- y_25 %>%  mutate(ST_addgift = ifelse(Solicitation_Type == "Additional Gift", 1, 0)) 
+
+y_27 <- y_26 %>% mutate(GS_cba = ifelse(Original_Gift_Source == "cba", 1, 0))
+y_28 <- y_27 %>% mutate(GS_oa = ifelse(Original_Gift_Source == "openask", 1, 0))
+
+y_final<- y_28
+ 
+
+sapply(y_final , function(x) sum(is.na(x)))
+
+ 
+y_final$gender <- as.factor(y_final$gender)
+y_final$Account_Status <- as.factor(y_final$Account_Status)
+y_final$Orig_Gift_Has_Prm <- as.factor(y_final$Orig_Gift_Has_Prm)
+y_final$City <- as.factor(y_final$City)
+y_final_01 <- y_final %>% mutate(logDonation = log(Original_Gift_Amount))
+ 
+y_final_02 <- y_final_01 %>% select(-4,-5,-6,-7)
+
+```
+
+
+
+Prepare Models- US - individuals
+```{r}
+# test run model
+ 
+model_01x <- lm(logDonation ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other   + SM_email   + SM_online    + SM_telemkt  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = y_final_02)
+
+summary(model_01x)
+vif(model_01x)
+plot(model_01x)
+
+ 
+ 
+
+```
+
+
+**Set up for parallel processing**
+
+```{r, warning = F, message = F}
+
+numberofcores = detectCores() # get the number of cores (to create a cluster)
+cl <- makeCluster(numberofcores-1) # make a cluster; allocating all but one core
+registerDoParallel(cl)  
+
+```
+
+
+Train and Test Model- Individuals  File
+```{r}
+
+set.seed(1234)
+training.samples <- y_final_02$logDonation %>%
+  createDataPartition(p = 0.75, list = FALSE)
+train.data  <- y_final_02[training.samples, ]
+test.data <- y_final_02[-training.samples, ]
+```
+
+
+
+#4a. Random Forest 
+```{r}
+set.seed(1234)
+rf1 <- train(logDonation  ~ Gift_Month + Gift_Year + gender + GS_radio + GS_acquisition + GS_mail + GS_otwhite + GS_specialopportunity + GS_showcase + GS_passport + GS_annfund  + GS_web   + GS_mail + GS_cba + GS_oa  + SM_autoren + SM_other   + SM_email   + SM_online    + SM_telemkt  + ST_ren  + ST_exp  + Orig_Gift_Has_Prm + Account_Status + Original_Gift_Mode, data = train.data, method = "rf", 
+                  trControl = trainControl("cv", number = 10))
+
+# Make predictions on test data
+predictrf1 <- predict(rf1, newdata= test.data)
+# Model performance - RMSE and Rsquare
+prf1 <- data.frame(RMSE = RMSE(predictrf1,  test.data$logDonation), Rsquare = R2(predictrf1, test.data$logDonation))
+prf1
+
+
+
+ 
+```
+
+
+
+**Stop parallel processing**
+
+```{r, warning = F, message = F}
+
+stopCluster(cl) #shut down the cluster
+registerDoSEQ() #switch back to sequential execution
+
+```
+
