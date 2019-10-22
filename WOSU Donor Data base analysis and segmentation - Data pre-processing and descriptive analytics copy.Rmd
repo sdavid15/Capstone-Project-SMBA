@@ -1,0 +1,2172 @@
+---
+title: "WOSU Donor Data base analysis & Segmentation"
+author: "Shyni David"
+date: "3/1/2019"
+output: html_document
+---
+###Introduction
+WOSU’s primary source of funding comes from individual community support. With over 27,000 donors providing annual support equaling approximately $4 million with additional major and planned gift support, the development team seeks to develop a deeper understanding of our constituency.
+Currently, the development teams work out of multiple databases and static documents with a treasure trove of disparate data about our donors. From an analytics needs assessment, WOSU is at the base level of analytics and need to lay the foundation in order to further utilize our data for targeted fundraising approaches, but also to eventually build toward predictive modelling of future WOSU donors. 
+
+----In the winter of 2018, in our kick off meeting with WOSU team, Rob Walker said quote unquote "We do not know who our donors are. We would like to know who they are. " 
+
+###Objective
+WOSU’s primary source of funding comes from individual community support. Their development team is seeking to develop a deeper understanding of  the constituencies by using data analytics in understanding the past and projecting the future. When donors approach philanthropy, their gifts are thoughtful and has intended purposes and seek a return on their philanthropic investments.  
+A pertinent question is  why do they give to WOSU? WOSU has a wide variety of fundraising programs through events, radio, TV , web, emails and personal contact.  Which of these tasks contribute to increased giving? Which tasks detract from the fundraising success? What is the spread of the donors across  the country? What should the campaign goal be? What are the factors for their success?  
+The exploratory data analysis will be used to investigate the trends. The statistical tools and techniques will help to interpret the data and build models to increase the predictability, thus empowering WOSU to strategically invest their resources in increasing the scalability and sustainability of donations.
+
+
+###Dataset
+There are 3 Datasets provided by WOSU:  
+1.	2000-2009 – 33740 observations (represents Original Donations), 22 variables/attributes  
+2.	2010-2018- 36361 observations(represents Original Donations), 22variables/attributes  
+3.	Event files – 22 Text file corresponding to some events since 2014 with the names  and date and other  related information.   
+
+
+#####Importing the necessary libraries
+
+```{r results = 'hide', message = FALSE, warning = FALSE}
+#install.packages("MASS")
+library(MASS)
+#install.packages("tidyverse")
+library(tidyverse)
+#install.packages("sqldf")
+library(sqldf)
+#install.packages("lubridate")
+library(lubridate)
+#install.packages("dplyr")
+library(dplyr)
+#install.packages("plyr")
+library(plyr)
+#install.packages("readxl")
+library(readxl)
+#install.packages("ggplot2")
+library(ggplot2)
+library(scales)
+library(stringr)
+#install.packages("USAboundaries")
+library(USAboundaries)
+#install.packages("gender")
+library(gender)
+#install.packages("caret")
+library(caret)
+ library(glmnet)
+library(gridExtra)
+#install.packages("VIM")
+library(VIM)
+library(lubridate)
+library(grid)
+#install.packages("XML")
+library(XML)
+#install.packages("httr")
+library("httr")
+#install.packages("VIM")
+library(VIM)
+#install.packages("car")
+library(car)
+#install.packages("rpart.plot")
+library(rpart.plot)
+library(caretEnsemble) # for Stacking
+#install.packages("doParallel")
+library(doParallel)  # parallel processing
+#install.packages("nnet")
+library(nnet) # for multinomial logit
+#install.packages("NeuralNetTools") 
+library(NeuralNetTools)
+library(ggplot2)
+library(scales)
+library(forcats)
+
+#if(!requireNamespace("devtools")) install.packages("devtools")
+#devtools::install_github("dkahle/ggmap")
+library(devtools)
+library(ggmap)
+  citation("ggmap")
+  register_google("AIzaSyATaYHjTE0llqEnf9D2IwZz1vluNAcSWKw")
+#install.packages(c("maps", "mapdata", "geosphere"))
+library(maps)
+library(mapdata)
+library(geosphere)
+  
+  
+```
+
+
+#####Importing Dataset
+```{r results = 'hide', message = FALSE, warning = FALSE}
+ setwd("~/Desktop/FISHER SMB-A/capstone/SMB-A Capstone Project")
+#Original Gift Date-2000-2009
+Gift_00_09 <- read_excel("2000-2009 Original Gift date .xlsx", 
+   col_types = c("numeric", "text", "text", 
+         "text", "text", "text", "text", "text", 
+                  "text", "text", "text", "date", "numeric", 
+         "text", "text", "text", "text", "text", 
+         "text", "numeric", "text", "text"))
+
+#Original Gift Date 2010- 2018
+Gift_10_18 <- read_excel("2010-2018 Original Gift date .xlsx", col_types = c("numeric", "text", "text", 
+      "text", "text", "text", "text", "text", 
+         "text", "text", "text", "date", "numeric", 
+         "text", "text", "text", "text", "text", 
+         "text", "numeric", "text", "text"))
+
+
+##EVENT files
+Attendee_List_for_Worthington_Premiere <- read_excel("Attendance List for Worthington Premiere.xlsx")
+
+Attendee_List_Beatles_Screening_at_GFC <- read_excel("Attendee & RSVP Lists_Beatles Screening at GFC.xlsx")
+
+Attendee_List_BG_Ramble_Event <- read_excel("Attendee List_BG Ramble Event.xlsx")
+
+Attendee_List_TGAR_Trivia_Night_8_10_18 <- read_excel("Attendee List_TGAR Trivia Night 8.10.18.xlsx", col_types = c("date", "text", "text", "text", "text"))
+
+Attendee_List_TVW_Screening_at_GFC_8_30_17 <- read_excel("Attendee List_TVW Screening at GFC 8.30.17.xlsx")
+
+Attendee_List_VS2_Screening <- read_excel("Attendee List_VS2 Screening.xlsx")
+
+Bexley_Invitation_List_MASTER <- read_excel("Bexley Invitation List_MASTER.xlsx")#col headings
+
+CN_NA_Premiere_Event_RSVP_MASTER_LIST <- read_excel("CN NA Premiere Event RSVP MASTER LIST.xlsx")
+
+DA_S4_Finale_Screening_Registration_List <- read_excel("DA S4 Finale Screening Registration List.xlsx")#Date
+
+DAs6_Finale_Party_Registration_List <- read_excel("DAs6 Finale Party Registration List.xlsx")
+
+Downton_Abbey_S6_Premiere_Attendee_List <- read_excel("Downton Abbey S6 Premiere Attendee List.xlsx")
+
+Downton_Abbey_Season_Four_Premiere_Event <- read_excel("Downton Abbey Season Four Premiere Event.xlsx")
+
+Front_Row_Center_RSVPs_as_of_4_26_18 <- read_excel("Front Row Center RSVPs as of 4.26.18.xlsx")
+
+Master_RSVP_List_Victoria_Screening_1_6_17_xls <- read_excel("Master RSVP List_Victoria Screening_1.6.17.xls.xlsx")
+
+Neil_Legacy_ITK_RSVP <- read_excel("Neil Legacy ITK_RSVP.xlsx")
+
+RSVP_List_PC_Fall_Preview_2018 <- read_excel("RSVP List_PC Fall Preview 2018.xlsx")
+
+RSVP_List_Vivaldi_Dinner_2017 <- read_excel("RSVP List_Vivaldi Dinner 2017.xlsx", col_types = c("text", "date", "text", "text", "text", "numeric", "text", "text"))
+
+RSVP_Master_List_C101_Reception <- read_excel("RSVP Master List_C101 Reception.xlsx", col_types = c("text", "text", "text", "text", "text", "date", "text"))
+
+TriVillage_RSVP_4_30_2015 <- read_excel("TriVillage RSVP 4_30_2015.xlsx")
+
+WOSU_WI65_RSVP_as_of_5_18_17 <- read_excel("WOSU-WI65 RSVP as of 5-18-17.xlsx")
+
+WWDTM_VIP_Guest_List <- read_excel("WWDTM VIP Guest List.xlsx")
+
+X2018_Innovation_Mixer_Registration_Responses_ <- read_excel("2018 Innovation Mixer Registration (Responses).xlsx")
+
+```
+
+#####Tidy data
+```{r}
+#ORIGINAL GIFT FILES
+#Rename the column names
+GiftCol <- c("Account_ID", "Donor_Seq_Name", "Donor_Name", "Letter_Salutation", "Address1", "Address2", "City", "State", "Zipcode", "email_address", "Account_Status", "Original_Gift_Date", "Original_Gift_Amount", "Original_Gift_Source", "Original_Gift_Mode", "Solicitation_Type", "Solicitation_Method", "Orig_Gift_Has_Prm", "Orig_Gift_Pledge_Type", "Orig_Gift_Level_Amount", "PBS_Digital_Token", "Passport_Active_Date"  )
+
+colnames(Gift_00_09) <- GiftCol
+colnames(Gift_10_18) <- GiftCol
+
+#Separate the Zip code and Delivery Route
+Gift_00_09_01 <- separate(Gift_00_09, Zipcode, c("Zip_code", "DeliveryRoute"))
+Gift_10_18_01 <- separate(Gift_10_18, Zipcode, c("Zip_code", "DeliveryRoute"))
+
+#Separate the date to Year and Month
+Gift_00_09_02 <- separate(Gift_00_09_01, Original_Gift_Date, c("Gift_Year", "Gift_Month", "Gift_Day"), sep = "-", remove = FALSE)
+Gift_10_18_02 <- separate(Gift_10_18_01, Original_Gift_Date, c("Gift_Year", "Gift_Month", "Gift_Day"), sep = "-", remove = FALSE)
+
+Gift_00_09_02$Gift_Year <- as.numeric(Gift_00_09_02$Gift_Year)
+Gift_00_09_02$Gift_Month <- as.numeric(Gift_00_09_02$Gift_Month)
+Gift_00_09_02$Gift_Day <- as.numeric(Gift_00_09_02$Gift_Day)
+
+Gift_10_18_02$Gift_Year <- as.numeric(Gift_10_18_02$Gift_Year)
+Gift_10_18_02$Gift_Month <- as.numeric(Gift_10_18_02$Gift_Month)
+Gift_10_18_02$Gift_Day <- as.numeric(Gift_10_18_02$Gift_Day)
+
+#Keep observations only for period 2000-2009 and 2010-2018 in respective tables
+Tbl1  <- sqldf(" select * from Gift_00_09_02 where gift_year > 2009 ")
+Gift_10_18_03 <- rbind(Gift_10_18_02, Tbl1)
+Gift_00_09_03 <- Gift_00_09_02 %>% filter(Gift_Year <= 2009 & Gift_Year >1999)
+
+#changing to Date field 
+Gift_10_18_03$Original_Gift_Date <- as.Date(Gift_10_18_03$Original_Gift_Date)
+Gift_00_09_03$Original_Gift_Date <- as.Date(Gift_00_09_03$Original_Gift_Date)
+
+#removing redundant variables:  Donor_Seq_Name, Address1, Address2, Zip_code, DeliveryRoute,  Gift Day, Original_Gift_Pledge_Type, Original_Gift_Level_Amount, PBS_Digital_Token, Passport_Active_Date
+Gift_00_09_04 <- Gift_00_09_03[, -c( 2, 5, 6, 9, 10, 16, 23, 24, 25, 26)]
+Gift_10_18_04 <- Gift_10_18_03[, -c( 2, 5, 6, 9, 10, 16, 23, 24, 25, 26)]
+
+
+#incorrect states
+#state table
+ usstates <- us_states()
+ as_tibble(usstates)
+ uss <- usstates$stusps
+ usst <- as_tibble(uss)
+not_us_states <- sqldf("select * from Gift_00_09_04 where State not in (select value from usst)")
+not_us_states1 <- sqldf("select * from Gift_00_09_03 a, not_us_states b where a.Donor_Name = b.Donor_Name ")
+not_us_states2 <- sqldf("select * from Gift_10_18_04 where State not in (select value from usst)")
+not_us_states22 <- sqldf("select * from Gift_10_18_03 a, not_us_states b where a.Donor_Name = b.Donor_Name ")
+
+#Donors Outside US
+outside_US <- rbind(not_us_states, not_us_states2)
+
+out_US <- sqldf("select Donor_Name, City, State, Account_Status, Gift_Year, Gift_Month, Original_Gift_Amount, Solicitation_Method from outside_US order by Account_Status ")
+head(out_US, 22)
+```
+
+
+There are  donors from Canada(from Province=Alberta, Ontario, and Quebec), London UK, Virgin Islands , Guam and from APO address. APO stands for "Army Post Office" and is associated with Army or Air Force installation. 
+```{r}
+#remove states from main files
+ 
+Gift_00_09_05 <- sqldf("select * from Gift_00_09_04 where State in (select value from usst)")
+Gift_10_18_05 <- sqldf("select * from Gift_10_18_04 where State in (select value from usst)")
+
+#check for null values
+sapply(Gift_00_09_05, function(x) sum(is.na(x)))
+sapply(Gift_10_18_05, function(x) sum(is.na(x)))
+
+#######
+# identify the organization 
+Gift_00_09_05$Letter_Salutation  <- tolower(Gift_00_09_05$Letter_Salutation)
+Gift_10_18_05$Letter_Salutation  <- tolower(Gift_10_18_05$Letter_Salutation) 
+
+Gift_09_Org <- Gift_00_09_05 %>% filter( str_detect(Letter_Salutation,"ampaig|oundat|company|group|corp|founda|organization| campaign|firm|establishment|agency|office|enterprise|operation|institution|venture|undertaking|practice|society|league|club|network|fund|process|consult|center|inc|publish|connect|team|plant|design|chamber|associa|person|community|system|service|vinyl|services|solution|oncrete|association|vcc|sisters|carryout|associates|photo%"))       
+ Gift_18_Org <- Gift_10_18_05 %>% filter( str_detect(Letter_Salutation,"ampaig|oundat|compa|group|corp|founda|organization| campaign|firm|establishment|agency|office|enterprise|operation|institution|venture|undertaking|practice|society|league|club|network|fund|process|consult|center|inc|publish|connect|team|plant|design|chamber|associa|person|community|system|service|vinyl|services|solution|oncrete|association|vcc|sisters|carryout|associates|photo%"))  
+ Gift_09_Org_01 <- sqldf("select * from Gift_09_Org where Letter_Salutation not like ('%mr%')")
+Gift_09_Org_02 <- sqldf("select * from Gift_09_Org_01 where Letter_Salutation not like ('%ms%')")
+Gift_09_Org_03 <- sqldf("select * from Gift_09_Org_02 where Letter_Salutation not like ('%dr%')")
+Gift_09_Org_04 <- sqldf("select * from Gift_09_Org_03 where Letter_Salutation not like ('%vinc%')")
+
+Gift_18_Org_01 <- sqldf("select * from Gift_18_Org where Letter_Salutation not like ('%mr%')")
+Gift_18_Org_02 <- sqldf("select * from Gift_18_Org_01 where Letter_Salutation not like ('%ms%')")
+Gift_18_Org_03 <- sqldf("select * from Gift_18_Org_02 where Letter_Salutation not like ('%dr%')")
+Gift_18_Org_04 <- sqldf("select * from Gift_18_Org_03 where Letter_Salutation not like ('%vinc%')")
+
+Gift_Org_Final <- rbind(Gift_09_Org_04, Gift_18_Org_04)
+
+
+#Get Individuals file removing organizations
+Gift_00_09_07 <- sqldf("select * from Gift_00_09_05 where Account_ID not in (select Account_ID from Gift_Org_Final)")
+Gift_10_18_07 <- sqldf("select * from Gift_10_18_05 where Account_ID not in (select Account_ID from Gift_Org_Final)")
+
+ 
+# get the gender field
+Family_name_09 <- Gift_00_09_07 %>% filter( str_detect(Letter_Salutation,"&"))
+Family_name_09_01 <- Family_name_09 %>% mutate(gender = NA) 
+Family_name_09_02 <- Family_name_09_01 %>% separate(Donor_Name, c("First", "Middle1", "Middle2", "Last"))
+Family_name_10 <- Gift_10_18_07 %>% filter( str_detect(Letter_Salutation,"&"))
+Family_name_10_01 <- Family_name_10 %>% mutate(gender = NA) 
+Family_name_10_02  <- Family_name_10_01  %>% separate(Donor_Name, c("First", "Middle1", "Middle2", "Last"))
+
+
+Gen_ID_09 <- sqldf("select * from Gift_00_09_07 where account_id not in (select account_id from Family_name_09)")
+Gen_ID_09$Donor_Name   <- as.character(Gen_ID_09$Donor_Name)
+Gen_ID_09_01 <- Gen_ID_09 %>% separate(Donor_Name, c("First", "Middle1", "Middle2", "Last"))
+Gen_ID_09_02 <- Gen_ID_09_01 %>% mutate(min_year = 1940, max_year = 2000)
+Gen_ID_09_03 <- Gen_ID_09_02 %>% gender_df(name_col = "First", year_col = c("min_year", "max_year"), method = "ssa")
+Gen_ID_09_04 <- Gen_ID_09_02 %>% left_join(Gen_ID_09_03, by = c("First" = "name"))
+Gen_ID_09_04_01 <- Gen_ID_09_04 %>% filter(is.na(Gen_ID_09_04$gender) == "FALSE")
+Gen_ID_09_05 <- Gen_ID_09_04 %>% filter(is.na(Gen_ID_09_04$gender) == "TRUE")
+
+ 
+Gen_ID_09_06 <-  Gen_ID_09_05 %>%  select(-c(22:26))
+Gen_ID_09_07 <- Gen_ID_09_06 %>% gender_df(name_col = "Middle1", year_col = c("min_year", "max_year"), method = "ssa")
+Gen_ID_09_08 <- Gen_ID_09_06 %>% left_join(Gen_ID_09_07, by = c("Middle1" = "name"))
+Gen_ID_09_08_01 <- Gen_ID_09_08 %>% filter(is.na(gender) == "FALSE")
+Gen_ID_09_08_02 <- Gen_ID_09_08 %>% filter(is.na(gender) == "TRUE")
+
+Gen_ID_09_09 <-  Gen_ID_09_08_02 %>%  select(-c(22:26))
+Gen_ID_09_10 <- Gen_ID_09_09 %>% gender_df(name_col = "Middle2", year_col = c("min_year", "max_year"), method = "ssa")
+Gen_ID_09_11 <- Gen_ID_09_09 %>% left_join(Gen_ID_09_10, by = c("Middle2" = "name"))
+Gen_ID_09_11_01 <- Gen_ID_09_11 %>% filter(is.na(gender) == "FALSE")
+Gen_ID_09_11_02 <- Gen_ID_09_11 %>% filter(is.na(gender) == "TRUE")
+
+Gen_ID_09_12 <-  Gen_ID_09_11_02 %>%  select(-c(22:26))
+Gen_ID_09_13 <- Gen_ID_09_12 %>% gender_df(name_col = "Last", year_col = c("min_year", "max_year"), method = "ssa")
+Gen_ID_09_14 <- Gen_ID_09_12 %>% left_join(Gen_ID_09_13, by = c("Last" = "name"))
+Gen_ID_09_14_01 <- Gen_ID_09_14 %>% filter(is.na(gender) == "FALSE")
+Gen_ID_09_14_02 <- Gen_ID_09_14 %>% filter(is.na(gender) == "TRUE")
+
+#get gender from salutation
+Gen_ID_09_15 <- Gen_ID_09_14_02 %>% mutate(gender = (ifelse(str_detect(Letter_Salutation,  "mr"), "male", " ")))
+Gen_ID_09_15_01 <- Gen_ID_09_15 %>% filter(gender == "male")
+Gen_ID_09_15_02 <- Gen_ID_09_15  %>% mutate(gender = (ifelse(str_detect(Letter_Salutation,  "ms"), "female", " ")))
+Gen_ID_09_15_03 <- Gen_ID_09_15_02 %>% filter(gender == "female")
+Gen_ID_09_15_04 <- rbind(Gen_ID_09_15_01, Gen_ID_09_15_03)
+
+#remg gender not identified
+y_01 <- sqldf("select * from Gen_ID_09_14_02 where account_id  not in (select account_id from Gen_ID_09_15_04)")
+
+
+#remove organization(Letter Salutation was different from Donor_names)
+ 
+y_01$First <- tolower(y_01$First)
+y_01$Middle1 <- tolower(y_01$Middle1)
+y_01$Middle2 <- tolower(y_01$Middle2)
+y_01$Last <- tolower(y_01$Last)
+x_14_org_01 <- y_01 %>% filter( str_detect(Middle1,"ampaig|oundat|compa|group|corp|founda|organization| campaign|firm|establishment|agency|office|enterprise|operation|institution|venture|undertaking|practice|society|league|club|network|fund|process|consult|center|inc|publish|connect|team|plant|design|chamber|associa|person|community|system|service|vinyl|services|solution|oncrete|association|vcc|sisters|carryout|associates|photograp%")) 
+x_14_org_02 <- y_01 %>% filter( str_detect(Middle2,"ampaig|oundat|compa|group|corp|founda|organization| campaign|firm|establishment|agency|office|enterprise|operation|institution|venture|undertaking|practice|society|league|club|network|fund|process|consult|center|inc|publish|connect|team|plant|design|chamber|associa|person|community|system|service|vinyl|services|solution|oncrete|association|vcc|sisters|carryout|associates|photo|association|concrete%"))  
+ 
+x_14_org <- rbind(x_14_org_01, x_14_org_02 )
+
+x_14_org_04 <- sqldf("select * from Gift_00_09_05 a, x_14_org b where a.account_id = b.account_id ")
+x_14_org_05 <- x_14_org_04 %>% select(-c(17:42))
+
+Gift_Org_Final_01 <- rbind(Gift_Org_Final, x_14_org_05)
+
+#could not identify gender
+x_15 <- sqldf("select * from y_01  where account_id not in (select account_id from x_14_org_05)")
+ 
+x_16 <- x_15 %>% select(-c(20:23, 25:26))
+
+#set the variable#
+Gen_ID_09_04_03 <- Gen_ID_09_04_01 %>% select(-c(20:23), -c(25:26))
+Gen_ID_09_08_03 <- Gen_ID_09_08_01 %>% select(-c(20:23), -c(25:26))
+Gen_ID_09_11_03 <- Gen_ID_09_11_01 %>% select(-c(20:23), -c(25:26))
+Gen_ID_09_14_03 <- Gen_ID_09_14_01 %>% select(-c(20:23), -c(25:26))
+Gen_ID_09_15_05 <- Gen_ID_09_15_04 %>% select(-c(20:23), -c(25:26))
+ 
+ 
+Gift_09_gender_final = rbind(Gen_ID_09_04_03, Gen_ID_09_08_03, Gen_ID_09_11_03, Gen_ID_09_14_03, Gen_ID_09_15_05, x_16, Family_name_09_02 )
+ 
+
+###################################################################
+#Repeat for Gift_18_Org
+
+Gen_ID_18 <- sqldf("select * from Gift_10_18_07 where account_id not in (select account_id from Family_name_10)")
+Gen_ID_18$Donor_Name   <- as.character(Gen_ID_18$Donor_Name)
+Gen_ID_18_01 <- Gen_ID_18 %>% separate(Donor_Name, c("First", "Middle1", "Middle2", "Last"))
+Gen_ID_18_02 <- Gen_ID_18_01 %>% mutate(min_year = 1940, max_year = 2000)
+Gen_ID_18_03 <- Gen_ID_18_02 %>% gender_df(name_col = "First", year_col = c("min_year", "max_year"), method = "ssa")
+Gen_ID_18_04 <- Gen_ID_18_02 %>% left_join(Gen_ID_18_03, by = c("First" = "name"))
+Gen_ID_18_04_01 <- Gen_ID_18_04 %>% filter(is.na(Gen_ID_18_04$gender) == "FALSE")
+Gen_ID_18_05 <- Gen_ID_18_04 %>% filter(is.na(Gen_ID_18_04$gender) == "TRUE")
+
+ 
+Gen_ID_18_06 <-  Gen_ID_18_05 %>%  select(-c(22:26))
+Gen_ID_18_07 <- Gen_ID_18_06 %>% gender_df(name_col = "Middle1", year_col = c("min_year", "max_year"), method = "ssa")
+Gen_ID_18_08 <- Gen_ID_18_06 %>% left_join(Gen_ID_18_07, by = c("Middle1" = "name"))
+Gen_ID_18_08_01 <- Gen_ID_18_08 %>% filter(is.na(gender) == "FALSE")
+Gen_ID_18_08_02 <- Gen_ID_18_08 %>% filter(is.na(gender) == "TRUE")
+
+Gen_ID_18_09 <-  Gen_ID_18_08_02 %>%  select(-c(22:26))
+Gen_ID_18_10 <- Gen_ID_18_09 %>% gender_df(name_col = "Middle2", year_col = c("min_year", "max_year"), method = "ssa")
+Gen_ID_18_11 <- Gen_ID_18_09 %>% left_join(Gen_ID_18_10, by = c("Middle2" = "name"))
+Gen_ID_18_11_01 <- Gen_ID_18_11 %>% filter(is.na(gender) == "FALSE")
+Gen_ID_18_11_02 <- Gen_ID_18_11 %>% filter(is.na(gender) == "TRUE")
+
+Gen_ID_18_12 <-  Gen_ID_18_11_02 %>%  select(-c(22:26))
+Gen_ID_18_13 <- Gen_ID_18_12 %>% gender_df(name_col = "Last", year_col = c("min_year", "max_year"), method = "ssa")
+Gen_ID_18_14 <- Gen_ID_18_12 %>% left_join(Gen_ID_18_13, by = c("Last" = "name"))
+Gen_ID_18_14_01 <- Gen_ID_18_14 %>% filter(is.na(gender) == "FALSE")
+Gen_ID_18_14_02 <- Gen_ID_18_14 %>% filter(is.na(gender) == "TRUE")
+
+#get gender from salutation
+Gen_ID_18_15 <- Gen_ID_18_14_02 %>% mutate(gender = (ifelse(str_detect(Letter_Salutation,  "mr"), "male", " ")))
+Gen_ID_18_15_01 <- Gen_ID_18_15 %>% filter(gender == "male")
+Gen_ID_18_15_02 <- Gen_ID_18_15  %>% mutate(gender = (ifelse(str_detect(Letter_Salutation,  "ms"), "female", " ")))
+Gen_ID_18_15_03 <- Gen_ID_18_15_02 %>% filter(gender == "female")
+Gen_ID_18_15_04 <- rbind(Gen_ID_18_15_01, Gen_ID_18_15_03)
+
+y_11 <- sqldf("select * from Gen_ID_18_14_02 where account_id  not in (select account_id from Gen_ID_18_15_04)")
+
+
+
+#remove organization(Letter Salutation was different from Donor_names)
+y_11$First <- tolower(y_11$First)
+y_11$Middle1 <- tolower(y_11$Middle1)
+y_11$Middle2 <- tolower(y_11$Middle2)
+y_11$Last <- tolower(y_11$Last)
+x_24_org_01 <- y_11 %>% filter( str_detect(Middle1,"ampaig|oundat|compa|group|corp|founda|organization| campaign|firm|establishment|agency|office|enterprise|operation|institution|venture|undertaking|practice|society|league|club|network|fund|process|consult|center|inc|publish|connect|team|plant|design|chamber|associa|person|community|system|service|vinyl|services|solution|oncrete|association|vcc|sisters|carryout|associates|photo|school|computer|therapy|propertie|dept|product|program|builder|chevrolet|medical|market|partners|member|blooms%"))  
+
+x_24_org_02 <- y_11 %>% filter( str_detect(Middle2,"ampaig|oundat|compa|group|corp|founda|organization| campaign|firm|establishment|agency|office|enterprise|operation|institution|venture|undertaking|practice|society|league|club|network|fund|process|consult|center|inc|publish|connect|team|plant|design|chamber|associa|person|community|system|service|vinyl|services|solution|oncrete|association|vcc|sisters|carryout|associates|photo|school|computer|therapy|auto|propertie|dept|product|program|builder|chevrolet|medical|market|partners|member%"))  
+
+
+x_24_org_03 <- rbind(x_24_org_01 , x_24_org_02  )
+
+x_24_org_04 <- sqldf("select * from Gift_10_18_05 a, x_24_org_03 b where a.account_id = b.account_id ")
+x_24_org_05 <- x_24_org_04 %>% select(-c(17:42))
+
+#Final Organization file
+Gift_Org_Final_02 <- rbind(Gift_Org_Final_01, x_24_org_05)
+
+x_25 <- sqldf("select * from y_11 where account_id not in (select account_id from x_24_org_05)")
+
+#could not filter gender 
+x_26 <- x_25 %>% select(-c(20:23, 25:26))
+ 
+ 
+
+#set the variable#
+Gen_ID_18_04_03 <- Gen_ID_18_04_01 %>% select(-c(20:23), -c(25:26))
+Gen_ID_18_08_03 <- Gen_ID_18_08_01 %>% select(-c(20:23), -c(25:26))
+Gen_ID_18_11_03 <- Gen_ID_18_11_01 %>% select(-c(20:23), -c(25:26))
+#Gen_ID_18_14_03 <- Gen_ID_18_14_01 %>% select(-c(20:23), -c(25:26))
+Gen_ID_18_15_05 <- Gen_ID_18_15_04 %>% select(-c(20:23), -c(25:26))
+ 
+ 
+Gift_18_gender_final = rbind(Gen_ID_18_04_03, Gen_ID_18_08_03, Gen_ID_18_11_03,  Gen_ID_18_15_05, x_26, Family_name_10_02 )
+ 
+ 
+#################################################################### 
+# separate file for OH State
+Gift_OH_09 <-Gift_09_gender_final  %>% filter(State == "OH")
+Gift_OH_18 <- Gift_18_gender_final  %>% filter(State == "OH")
+
+#Rest of the states in US
+Gift_00_09_08 <- sqldf("select * from Gift_09_gender_final where State not in ('OH')")
+Gift_10_18_08 <- sqldf("select * from Gift_18_gender_final where State not in ('OH')")
+
+ 
+```
+
+Original Gift Source to be condensed to root words
+```{r}
+ 
+#In Ohio file 
+Gift_OH_09$Original_Gift_Source <- tolower(Gift_OH_09$Original_Gift_Source)
+
+#radio/fm
+Gift_OH_09_radio <- Gift_OH_09 %>% filter(str_detect(Original_Gift_Source, "fm|radio|am|air|renewal|adjust"))
+radio <- "radio"
+Gift_OH_09_radio$Original_Gift_Source <- radio
+
+ #tv
+Gift_OH_09_remg <-  sqldf("select * from Gift_OH_09 where account_id not in (select account_id from Gift_OH_09_radio ) ")
+ Gift_OH_09_tv <- Gift_OH_09_remg  %>% filter(str_detect(Original_Gift_Source, "tv|toop"))
+tv <- "tv"
+ Gift_OH_09_tv$Original_Gift_Source <- tv
+ 
+
+ 
+ #web
+Gift_OH_09_remg_01 <-  sqldf("select * from Gift_OH_09_remg where account_id not in (select account_id from Gift_OH_09_tv) ")
+Gift_OH_09_web <- Gift_OH_09_remg_01  %>% filter(str_detect(Original_Gift_Source, "internet|web"))
+web <- "web"
+Gift_OH_09_web$Original_Gift_Source <- web
+
+
+
+#New year 
+Gift_OH_09_remg_02 <-  sqldf("select * from Gift_OH_09_remg_01 where account_id not in (select account_id from Gift_OH_09_web) ")
+Gift_OH_09_newyear <- Gift_OH_09_remg_02 %>% filter(str_detect(Original_Gift_Source, "happy"))
+new_year <- "new year"
+Gift_OH_09_newyear$Original_Gift_Source <- new_year
+
+ 
+
+#membership drive
+Gift_OH_09_remg_03 <-  sqldf("select * from Gift_OH_09_remg_02 where account_id not in (select account_id from Gift_OH_09_newyear) ")
+Gift_OH_09_mbr <- Gift_OH_09_remg_03  %>% filter(str_detect(Original_Gift_Source, "mbrship|member|pledge"))
+mbr <- "membership drive"
+Gift_OH_09_mbr$Original_Gift_Source <-  radio
+
+ 
+
+#acquisition
+Gift_OH_09_remg_04 <-  sqldf("select * from Gift_OH_09_remg_03 where account_id not in (select account_id from Gift_OH_09_mbr) ")
+Gift_OH_09_acq <- Gift_OH_09_remg_04  %>% filter(str_detect(Original_Gift_Source, "acq|acqui"))
+acq <- "acquisition"
+Gift_OH_09_acq$Original_Gift_Source <-  acq
+
+
+
+#annual fund
+Gift_OH_09_remg_05 <-  sqldf("select * from Gift_OH_09_remg_04 where account_id not in (select account_id from Gift_OH_09_acq) ")
+Gift_OH_09_af <- Gift_OH_09_remg_05 %>% filter(str_detect(Original_Gift_Source, "fund|annual"))
+anfund <- "annual fund"
+Gift_OH_09_af$Original_Gift_Source <-  anfund
+
+
+
+#cba
+Gift_OH_09_remg_06 <-  sqldf("select * from Gift_OH_09_remg_05 where account_id not in (select account_id from Gift_OH_09_af) ")
+Gift_OH_09_cba <- Gift_OH_09_remg_06 %>% filter(str_detect(Original_Gift_Source, "cba"))
+mail <- "mail"
+cba <- "cba"
+Gift_OH_09_cba$Original_Gift_Source <-  cba
+
+
+
+#ot white
+Gift_OH_09_remg_07 <-  sqldf("select * from Gift_OH_09_remg_06 where account_id not in (select account_id from Gift_OH_09_cba) ")
+Gift_OH_09_otw<- Gift_OH_09_remg_07 %>% filter(str_detect(Original_Gift_Source, "white"))
+otw <- "otwhite"
+Gift_OH_09_otw$Original_Gift_Source <-  otw
+
+
+
+#mail
+Gift_OH_09_remg_08 <-  sqldf("select * from Gift_OH_09_remg_07 where account_id not in (select account_id from Gift_OH_09_otw) ")
+Gift_OH_09_mail <- Gift_OH_09_remg_08  %>% filter(str_detect(Original_Gift_Source, "mail"))
+mail <- "mail"
+Gift_OH_09_mail$Original_Gift_Source <-  mail
+
+
+
+
+#year end
+Gift_OH_09_remg_09 <-  sqldf("select * from Gift_OH_09_remg_08 where account_id not in (select account_id from Gift_OH_09_mail) ")
+Gift_OH_09_yrend <- Gift_OH_09_remg_09  %>% filter(str_detect(Original_Gift_Source, "year end"))
+yrend <- "year end"
+Gift_OH_09_yrend$Original_Gift_Source <-  yrend
+
+
+
+#showcase
+Gift_OH_09_remg_10 <-  sqldf("select * from Gift_OH_09_remg_09 where account_id not in (select account_id from Gift_OH_09_yrend) ")
+Gift_OH_09_shcase<- Gift_OH_09_remg_10 %>% filter(str_detect(Original_Gift_Source, "showcase"))
+showcase <- "showcase"
+Gift_OH_09_shcase$Original_Gift_Source <-  showcase
+
+
+
+#tahnksgiving
+Gift_OH_09_remg_11 <-  sqldf("select * from Gift_OH_09_remg_10 where account_id not in (select account_id from Gift_OH_09_shcase) ")
+Gift_OH_09_thk <- Gift_OH_09_remg_11 %>% filter(str_detect(Original_Gift_Source, "thanksgiv"))
+thk <- "thanksgiving"
+Gift_OH_09_thk$Original_Gift_Source <-  radio
+
+
+#special opportunity
+Gift_OH_09_remg_12 <-  sqldf("select * from Gift_OH_09_remg_11 where account_id not in (select account_id from Gift_OH_09_thk) ")
+Gift_OH_09_so <- Gift_OH_09_remg_12 %>% filter(str_detect(Original_Gift_Source, "oppo|opp|special|auction|classic|gift|car|celtic|war|christian|memory|laps|dmw"))
+opportunity <- "special opportunity"
+Gift_OH_09_so$Original_Gift_Source <-  opportunity
+
+
+
+
+#On Air -radio- remaining
+Gift_OH_09_remg_13 <-  sqldf("select * from Gift_OH_09_remg_12 where account_id not in (select account_id from Gift_OH_09_so) ")
+Gift_OH_09_onair_rmg  <- sqldf("select * from Gift_OH_09_remg_13 where solicitation_method  like '%On Air%'")
+Gift_OH_09_onair_rmg$Original_Gift_Source <- radio 
+
+ 
+
+#Mail - remaining
+ Gift_OH_09_mail_rmg  <- sqldf("select * from Gift_OH_09_remg_13 where solicitation_method  like '%ail%'")
+Gift_OH_09_mail_rmg$Original_Gift_Source <- mail 
+
+
+ 
+#Gift source with root word
+Gift_OH_09_source_root <- rbind(Gift_OH_09_radio, Gift_OH_09_tv, Gift_OH_09_web, Gift_OH_09_newyear, Gift_OH_09_mbr, Gift_OH_09_acq, Gift_OH_09_af, Gift_OH_09_cba, Gift_OH_09_otw, Gift_OH_09_mail, Gift_OH_09_yrend, Gift_OH_09_shcase, Gift_OH_09_thk, Gift_OH_09_so, Gift_OH_09_onair_rmg, Gift_OH_09_mail_rmg)
+
+ 
+########
+ 
+Gift_10_18_08$Original_Gift_Source <- tolower(Gift_10_18_08$Original_Gift_Source)
+#radio/fm
+Gift_10_18_08_radio <- Gift_10_18_08 %>% filter(str_detect(Original_Gift_Source, "fm|radio|am|air|renewal|adjust"))
+radio <- "radio"
+Gift_10_18_08_radio$Original_Gift_Source <- radio
+
+
+
+ #tv
+Gift_10_18_08_remg <-  sqldf("select * from Gift_10_18_08  where account_id not in (select account_id from Gift_10_18_08_radio ) ")
+ Gift_10_18_08_tv <- Gift_10_18_08_remg %>% filter(str_detect(Original_Gift_Source, "tv|toop"))
+tv <- "tv"
+ Gift_10_18_08_tv$Original_Gift_Source <- tv
+
+
+ #web
+Gift_10_18_08_remg_01 <-  sqldf("select * from Gift_10_18_08_remg where account_id not in (select account_id from Gift_10_18_08_tv) ")
+Gift_10_18_08_web <- Gift_10_18_08_remg_01  %>% filter(str_detect(Original_Gift_Source, "internet|web"))
+web <- "web"
+Gift_10_18_08_web$Original_Gift_Source <- web
+
+
+
+#New year 
+Gift_10_18_08_remg_02 <-  sqldf("select * from Gift_10_18_08_remg_01 where account_id not in (select account_id from Gift_10_18_08_web) ")
+Gift_10_18_08_newyear <- Gift_10_18_08_remg_02 %>% filter(str_detect(Original_Gift_Source, "happy"))
+new_year <- "new year"
+Gift_10_18_08_newyear$Original_Gift_Source <- new_year
+
+
+
+#acquisition
+Gift_10_18_08_remg_03 <-  sqldf("select * from Gift_10_18_08_remg_02 where account_id not in (select account_id from Gift_10_18_08_newyear) ")
+Gift_10_18_08_acq <- Gift_10_18_08_remg_03  %>% filter(str_detect(Original_Gift_Source, "acq|acqui"))
+acq <- "acquisition"
+Gift_10_18_08_acq$Original_Gift_Source <-  acq
+
+
+#annual fund
+Gift_10_18_08_remg_04 <-  sqldf("select * from Gift_10_18_08_remg_03 where account_id not in (select account_id from Gift_10_18_08_acq) ")
+Gift_10_18_08_af <- Gift_10_18_08_remg_04 %>% filter(str_detect(Original_Gift_Source, "fund|annual"))
+anfund <- "annual fund"
+Gift_10_18_08_af$Original_Gift_Source <-  anfund
+
+
+
+#ot white
+Gift_10_18_08_remg_05  <-  sqldf("select * from Gift_10_18_08_remg_04 where account_id not in (select account_id from Gift_10_18_08_af) ")
+Gift_10_18_08_otw<- Gift_10_18_08_remg_05 %>% filter(str_detect(Original_Gift_Source, "white"))
+otw <- "otwhite"
+Gift_10_18_08_otw$Original_Gift_Source <-  otw
+
+
+#year end
+Gift_10_18_08_remg_06 <-  sqldf("select * from Gift_10_18_08_remg_05 where account_id not in (select account_id from Gift_10_18_08_otw) ")
+Gift_10_18_08_yrend <- Gift_10_18_08_remg_06 %>% filter(str_detect(Original_Gift_Source, "year end"))
+yrend <- "year end"
+Gift_10_18_08_yrend$Original_Gift_Source <-  yrend
+
+
+#passport
+Gift_10_18_08_remg_07 <-  sqldf("select * from Gift_10_18_08_remg_06 where account_id not in (select account_id from Gift_10_18_08_yrend) ")
+Gift_10_18_08_passport <- Gift_10_18_08_remg_07 %>% filter(str_detect(Original_Gift_Source, "passport"))
+passport <- "passport"
+Gift_10_18_08_passport$Original_Gift_Source <-  passport
+
+
+#special opportunity
+Gift_10_18_08_remg_08 <-  sqldf("select * from Gift_10_18_08_remg_07 where account_id not in (select account_id from Gift_10_18_08_passport) ")
+Gift_10_18_08_so <- Gift_10_18_08_remg_08 %>% filter(str_detect(Original_Gift_Source, "oppo|opp|special|auction|classic|gift|car|celtic|war|christian|memory|laps|dmw|match|pitch|give|sponser|founder|ticket"))
+opportunity <- "special opportunity"
+Gift_10_18_08_so$Original_Gift_Source <-  opportunity
+
+
+
+#Mail - remaining
+Gift_10_18_08_remg_09 <-  sqldf("select * from Gift_10_18_08_remg_08 where account_id not in (select account_id from Gift_10_18_08_so) ")
+Gift_10_18_08_mail_rmg  <- sqldf("select * from Gift_10_18_08_remg_09  where solicitation_method  like '%ail%'")
+Gift_10_18_08_mail_rmg$Original_Gift_Source <- mail 
+
+
+
+#On air remg
+Gift_10_18_08_remg_10 <-  sqldf("select * from Gift_10_18_08_remg_09 where account_id not in (select account_id from Gift_10_18_08_mail_rmg) ")
+Gift_10_18_08_remg_10$Original_Gift_Source <- radio 
+
+ 
+
+Gift_10_18_08_source_root <- rbind(Gift_10_18_08_radio, Gift_10_18_08_tv, Gift_10_18_08_web, Gift_10_18_08_newyear, Gift_10_18_08_acq, Gift_10_18_08_af, Gift_10_18_08_otw, Gift_10_18_08_yrend, Gift_10_18_08_passport, Gift_10_18_08_so, Gift_10_18_08_mail_rmg, Gift_10_18_08_remg_10)
+
+########################
+Gift_OH_18$Original_Gift_Source <- tolower(Gift_OH_18$Original_Gift_Source)
+#radio/fm
+Gift_OH_18_radio <- Gift_OH_18 %>% filter(str_detect(Original_Gift_Source, "fm|radio|am|air|renewal|adjust"))
+radio <- "radio"
+Gift_OH_18_radio$Original_Gift_Source <- radio
+
+ #tv
+Gift_OH_18_remg <-  sqldf("select * from Gift_OH_18 where account_id not in (select account_id from Gift_OH_18_radio ) ")
+ Gift_OH_18_tv <- Gift_OH_18_remg  %>% filter(str_detect(Original_Gift_Source, "tv|toop"))
+tv <- "tv"
+ Gift_OH_18_tv$Original_Gift_Source <- tv
+ 
+ #web
+Gift_OH_18_remg_01 <-  sqldf("select * from Gift_OH_18_remg where account_id not in (select account_id from Gift_OH_18_tv) ")
+Gift_OH_18_web <- Gift_OH_18_remg_01  %>% filter(str_detect(Original_Gift_Source, "internet|web"))
+web <- "web"
+Gift_OH_18_web$Original_Gift_Source <- web
+
+ 
+#New year 
+Gift_OH_18_remg_02 <-  sqldf("select * from Gift_OH_18_remg_01 where account_id not in (select account_id from Gift_OH_18_web) ")
+Gift_OH_18_newyear <- Gift_OH_18_remg_02 %>% filter(str_detect(Original_Gift_Source, "happy"))
+new_year <- "new year"
+Gift_OH_18_newyear$Original_Gift_Source <- new_year
+
+
+#membership drive
+Gift_OH_18_remg_03 <-  sqldf("select * from Gift_OH_18_remg_02 where account_id not in (select account_id from Gift_OH_18_newyear) ")
+Gift_OH_18_mbr <- Gift_OH_18_remg_03  %>% filter(str_detect(Original_Gift_Source, "mbrship|member|pledge"))
+mbr <- "membership drive"
+Gift_OH_18_mbr$Original_Gift_Source <-  mail
+
+#acquisition
+Gift_OH_18_remg_04 <-  sqldf("select * from Gift_OH_18_remg_03 where account_id not in (select account_id from Gift_OH_18_mbr) ")
+Gift_OH_18_acq <- Gift_OH_18_remg_04  %>% filter(str_detect(Original_Gift_Source, "acq|acqui"))
+acq <- "acquisition"
+Gift_OH_18_acq$Original_Gift_Source <-  acq
+
+#annual fund
+Gift_OH_18_remg_05 <-  sqldf("select * from Gift_OH_18_remg_04 where account_id not in (select account_id from Gift_OH_18_acq) ")
+Gift_OH_18_af <- Gift_OH_18_remg_05 %>% filter(str_detect(Original_Gift_Source, "fund|annual"))
+anfund <- "annual fund"
+Gift_OH_18_af$Original_Gift_Source <-  anfund
+
+#cba
+Gift_OH_18_remg_06 <-  sqldf("select * from Gift_OH_18_remg_05 where account_id not in (select account_id from Gift_OH_18_af) ")
+Gift_OH_18_cba <- Gift_OH_18_remg_06 %>% filter(str_detect(Original_Gift_Source, "cba"))
+cba <- "cba"
+Gift_OH_18_cba$Original_Gift_Source <-  cba
+
+
+#ot white
+Gift_OH_18_remg_07 <-  sqldf("select * from Gift_OH_18_remg_06 where account_id not in (select account_id from Gift_OH_18_cba) ")
+Gift_OH_18_otw<- Gift_OH_18_remg_07 %>% filter(str_detect(Original_Gift_Source, "white"))
+otw <- "otwhite"
+Gift_OH_18_otw$Original_Gift_Source <-  otw
+
+
+#mail
+Gift_OH_18_remg_08 <-  sqldf("select * from Gift_OH_18_remg_07 where account_id not in (select account_id from Gift_OH_18_otw) ")
+Gift_OH_18_mail <- Gift_OH_18_remg_08  %>% filter(str_detect(Original_Gift_Source, "mail"))
+mail <- "mail"
+Gift_OH_18_mail$Original_Gift_Source <-  mail
+
+#year end
+Gift_OH_18_remg_09 <-  sqldf("select * from Gift_OH_18_remg_08 where account_id not in (select account_id from Gift_OH_18_mail) ")
+Gift_OH_18_yrend <- Gift_OH_18_remg_09  %>% filter(str_detect(Original_Gift_Source, "year end"))
+yrend <- "year end"
+Gift_OH_18_yrend$Original_Gift_Source <-  yrend
+
+#passport
+Gift_OH_18_remg_10 <-  sqldf("select * from Gift_OH_18_remg_09 where account_id not in (select account_id from Gift_OH_18_yrend) ")
+Gift_OH_18_passport <- Gift_OH_18_remg_10 %>% filter(str_detect(Original_Gift_Source, "passport"))
+passport <- "passport"
+Gift_OH_18_passport$Original_Gift_Source <-  passport
+
+
+#open ask mail
+Gift_OH_18_remg_11 <-  sqldf("select * from Gift_OH_18_remg_10 where account_id not in (select account_id from Gift_OH_18_passport) ")
+Gift_OH_18_oa <- Gift_OH_18_remg_11 %>% filter(str_detect(Original_Gift_Source, "open ask"))
+openask <- "openask"
+Gift_OH_18_oa$Original_Gift_Source <-  openask
+
+ 
+#special opportunity
+Gift_OH_18_remg_12 <-  sqldf("select * from Gift_OH_18_remg_11 where account_id not in (select account_id from Gift_OH_18_oa) ")
+Gift_OH_18_so <- Gift_OH_18_remg_12 %>% filter(str_detect(Original_Gift_Source, "oppo|opp|special|auction|classic|gift|car|celtic|war|christian|memory|laps|dmw|match|pitch|give|sponser|founder"))
+opportunity <- "special opportunity"
+Gift_OH_18_so$Original_Gift_Source <-  opportunity
+
+
+#On Air -radio- remaining
+Gift_OH_18_remg_13 <-  sqldf("select * from Gift_OH_18_remg_12 where account_id not in (select account_id from Gift_OH_18_so) ")
+Gift_OH_18_onair_rmg  <- sqldf("select * from Gift_OH_18_remg_13 where solicitation_method  like '%On Air%'")
+Gift_OH_18_onair_rmg$Original_Gift_Source <- radio 
+
+
+#Mail - remaining
+ Gift_OH_18_mail_rmg  <- sqldf("select * from Gift_OH_18_remg_13 where solicitation_method  like '%ail%'")
+Gift_OH_18_mail_rmg$Original_Gift_Source <- mail 
+
+
+#Web - remaining
+ Gift_OH_18_web_rmg  <- sqldf("select * from Gift_OH_18_remg_13 where solicitation_method  like '%eb%'")
+Gift_OH_18_web_rmg$Original_Gift_Source <- web 
+
+#- remaining
+ Gift_OH_18_ot_rmg  <- sqldf("select * from Gift_OH_18_remg_13 where account_id not in (select account_id from  Gift_OH_18_web_rmg )")
+  Gift_OH_18_ot1_rmg  <- sqldf("select * from  Gift_OH_18_ot_rmg  where account_id not in (select account_id from   Gift_OH_18_mail_rmg  )")
+ 
+  
+ Gift_OH_18_ot2_rmg  <- sqldf("select * from  Gift_OH_18_ot1_rmg  where account_id not in (select account_id from    Gift_OH_18_onair_rmg )")
+  Gift_OH_18_ot2_rmg$Original_Gift_Source <- radio 
+ 
+ 
+#Gift source with root word
+Gift_OH_18_source_root <- rbind(Gift_OH_18_radio, Gift_OH_18_tv, Gift_OH_18_web, Gift_OH_18_newyear, Gift_OH_18_mbr, Gift_OH_18_acq, Gift_OH_18_af, Gift_OH_18_cba, Gift_OH_18_otw, Gift_OH_18_mail, Gift_OH_18_yrend, Gift_OH_18_passport, Gift_OH_18_oa, Gift_OH_18_so, Gift_OH_18_onair_rmg, Gift_OH_18_mail_rmg, Gift_OH_18_web_rmg, Gift_OH_18_ot2_rmg)
+
+ 
+ 
+#############
+# In organization file
+
+Gift_Org_Final_02$Original_Gift_Source <- tolower(Gift_Org_Final_02$Original_Gift_Source)
+#radio/fm
+Gift_Org_Final_02_radio <- Gift_Org_Final_02 %>% filter(str_detect(Original_Gift_Source, "fm|radio|am|air|renewal|adjust"))
+radio <- "radio"
+Gift_Org_Final_02_radio$Original_Gift_Source <- radio
+
+ #tv
+Gift_Org_Final_02_remg <-  sqldf("select * from Gift_Org_Final_02 where account_id not in (select account_id from Gift_Org_Final_02_radio ) ")
+ Gift_Org_Final_02_tv <- Gift_Org_Final_02_remg  %>% filter(str_detect(Original_Gift_Source, "tv|toop"))
+tv <- "tv"
+ Gift_Org_Final_02_tv$Original_Gift_Source <- tv
+ 
+  #web
+Gift_Org_Final_02_remg_01 <-  sqldf("select * from Gift_Org_Final_02_remg where account_id not in (select account_id from Gift_Org_Final_02_tv) ")
+Gift_Org_Final_02_web <- Gift_Org_Final_02_remg_01  %>% filter(str_detect(Original_Gift_Source, "internet|web"))
+web <- "web"
+Gift_Org_Final_02_web$Original_Gift_Source <- web
+
+#acquisition
+Gift_Org_Final_02_remg_04 <-  sqldf("select * from Gift_Org_Final_02_remg_01 where account_id not in (select account_id from Gift_Org_Final_02_web) ")
+Gift_Org_Final_02_acq <- Gift_Org_Final_02_remg_04  %>% filter(str_detect(Original_Gift_Source, "acq|acqui"))
+acq <- "acquisition"
+Gift_Org_Final_02_acq$Original_Gift_Source <-  acq
+
+
+#annual fund
+Gift_Org_Final_02_remg_05 <-  sqldf("select * from Gift_Org_Final_02_remg_04  where account_id not in (select account_id from Gift_Org_Final_02_acq) ")
+Gift_Org_Final_02_af <- Gift_Org_Final_02_remg_05 %>% filter(str_detect(Original_Gift_Source, "fund|annual"))
+anfund <- "annual fund"
+Gift_Org_Final_02_af$Original_Gift_Source <-  anfund
+
+#special opportunity
+Gift_Org_Final_02_remg_12 <-  sqldf("select * from Gift_Org_Final_02_remg_05 where account_id not in (select account_id from Gift_Org_Final_02_af) ")
+Gift_Org_Final_02_so <- Gift_Org_Final_02_remg_12 %>% filter(str_detect(Original_Gift_Source, "oppo|opp|special|auction|classic|gift|car|celtic|war|christian|memory|laps|dmw|match|pitch|give|sponser|founder"))
+opportunity <- "special opportunity"
+Gift_Org_Final_02_so$Original_Gift_Source <-  opportunity
+ 
+ 
+#ot white
+Gift_Org_Final_02_remg_13 <-  sqldf("select * from Gift_Org_Final_02_remg_12 where account_id not in (select account_id from Gift_Org_Final_02_so) ")
+Gift_Org_Final_02_otw<- Gift_Org_Final_02_remg_13 %>% filter(str_detect(Original_Gift_Source, "white"))
+otw <- "otwhite"
+Gift_Org_Final_02_otw$Original_Gift_Source <-  otw
+
+ 
+#Web - remaining
+ Gift_Org_Final_02_web_rmg  <- sqldf("select * from Gift_Org_Final_02_remg_13 where account_id not in (select account_id from Gift_Org_Final_02_otw)")
+Gift_Org_Final_02_web_rmg_01  <- sqldf("select * from Gift_Org_Final_02_web_rmg  where solicitation_method  like '%eb%'")
+Gift_Org_Final_02_web_rmg_01$Original_Gift_Source <- web 
+
+#radio - remaining
+ Gift_Org_Final_02_radio_rmg  <- sqldf("select * from Gift_Org_Final_02_web_rmg  where account_id not in (select account_id from Gift_Org_Final_02_web_rmg_01)")
+ Gift_Org_Final_02_radio_rmg$Original_Gift_Source <- radio
+
+ #Gift source with root word
+Gift_Org_Final_source_root <- rbind(Gift_Org_Final_02_radio, Gift_Org_Final_02_tv, Gift_Org_Final_02_web,
+Gift_Org_Final_02_acq, Gift_Org_Final_02_af, Gift_Org_Final_02_so, Gift_Org_Final_02_otw, Gift_Org_Final_02_web_rmg_01, Gift_Org_Final_02_radio_rmg )
+
+#################
+# In states other than Ohio
+Gift_00_09_08$Original_Gift_Source <- tolower(Gift_00_09_08$Original_Gift_Source)
+ #radio/fm
+Gift_00_09_08_radio <- Gift_00_09_08 %>% filter(str_detect(Original_Gift_Source, "fm|radio|am|air|renewal|adjust"))
+radio <- "radio"
+Gift_00_09_08_radio$Original_Gift_Source <- radio
+
+
+#tv
+Gift_00_09_08_remg <-  sqldf("select * from Gift_00_09_08 where account_id not in (select account_id from Gift_00_09_08_radio ) ")
+ Gift_00_09_08_tv <- Gift_00_09_08_remg %>% filter(str_detect(Original_Gift_Source, "tv|toop"))
+tv <- "tv"
+ Gift_00_09_08_tv$Original_Gift_Source <- tv
+
+ 
+Gift_00_09_08_remg_01 <-  sqldf("select * from Gift_00_09_08_remg where account_id not in (select account_id from Gift_00_09_08_tv) ")
+Gift_00_09_08_web <- Gift_00_09_08_remg_01 %>% filter(str_detect(Original_Gift_Source, "internet|web"))
+web <- "web"
+Gift_00_09_08_web$Original_Gift_Source <- web
+
+#New year 
+Gift_00_09_08_remg_02 <-  sqldf("select * from Gift_00_09_08_remg_01  where account_id not in (select account_id from Gift_00_09_08_web) ")
+Gift_00_09_08_newyear <- Gift_00_09_08_remg_02 %>% filter(str_detect(Original_Gift_Source, "happy"))
+new_year <- "new year"
+Gift_00_09_08_newyear$Original_Gift_Source <- new_year
+ 
+
+#acquissition
+Gift_00_09_08_remg_03 <-  sqldf("select * from Gift_00_09_08_remg_02 where account_id not in (select account_id from Gift_00_09_08_newyear) ")
+Gift_00_09_08_acq <- Gift_00_09_08_remg_03  %>% filter(str_detect(Original_Gift_Source, "acq|acqui"))
+acq <- "acquisition"
+Gift_00_09_08_acq$Original_Gift_Source <-  acq 
+
+
+#annual fund
+Gift_00_09_08_remg_04  <-  sqldf("select * from Gift_00_09_08_remg_03  where account_id not in (select account_id from Gift_00_09_08_acq) ")
+Gift_00_09_08_af <- Gift_00_09_08_remg_04  %>% filter(str_detect(Original_Gift_Source, "fund|annual"))
+anfund <- "annual fund"
+Gift_00_09_08_af$Original_Gift_Source <-  anfund
+
+
+#ot white
+Gift_00_09_08_remg_05 <-  sqldf("select * from Gift_00_09_08_remg_04 where account_id not in (select account_id from Gift_00_09_08_af) ")
+Gift_00_09_08_otw<- Gift_00_09_08_remg_05 %>% filter(str_detect(Original_Gift_Source, "white"))
+otw <- "otwhite"
+Gift_00_09_08_otw$Original_Gift_Source <-  otw
+
+#mail
+Gift_00_09_08_remg_06  <-  sqldf("select * from Gift_00_09_08_remg_05  where account_id not in (select account_id from Gift_00_09_08_otw) ")
+Gift_00_09_08_mail <- Gift_00_09_08_remg_06  %>% filter(str_detect(Original_Gift_Source, "mail"))
+mail <- "mail"
+Gift_00_09_08_mail$Original_Gift_Source <-  mail
+
+
+#year end
+Gift_00_09_08_remg_07 <-  sqldf("select * from Gift_00_09_08_remg_06 where account_id not in (select account_id from Gift_00_09_08_mail) ")
+Gift_00_09_08_yrend <- Gift_00_09_08_remg_07  %>% filter(str_detect(Original_Gift_Source, "year end"))
+yrend <- "year end"
+Gift_00_09_08_yrend$Original_Gift_Source <-  yrend
+
+#showcase
+Gift_00_09_08_remg_08 <-  sqldf("select * from Gift_00_09_08_remg_07 where account_id not in (select account_id from Gift_00_09_08_yrend) ")
+Gift_00_09_08_showcase <- Gift_00_09_08_remg_08 %>% filter(str_detect(Original_Gift_Source, "showcase"))
+showcase <- "showcase"
+Gift_00_09_08_showcase$Original_Gift_Source <-  showcase
+
+#special opportunity
+Gift_00_09_08_remg_09  <-  sqldf("select * from Gift_00_09_08_remg_08  where account_id not in (select account_id from Gift_00_09_08_showcase) ")
+Gift_00_09_08_so <- Gift_00_09_08_remg_09  %>% filter(str_detect(Original_Gift_Source, "oppo|opp|special|auction|classic|gift|car|celtic|war|christian|memory|laps|dmw|match|pitch|give|sponser|founder|trip"))
+opportunity <- "special opportunity"
+Gift_00_09_08_so$Original_Gift_Source <-  opportunity
+
+#membership drive
+Gift_00_09_08_remg_10  <-  sqldf("select * from Gift_00_09_08_remg_09  where account_id not in (select account_id from Gift_00_09_08_so) ")
+Gift_00_09_08_mbr <- Gift_00_09_08_remg_10  %>% filter(str_detect(Original_Gift_Source, "mbrship|member|pledge"))
+mbr <- "membership drive"
+Gift_00_09_08_mbr$Original_Gift_Source <-  radio
+
+#remg-On Air
+Gift_00_09_08_remg_11  <-  sqldf("select * from Gift_00_09_08_remg_10  where account_id not in (select account_id from Gift_00_09_08_mbr) ")
+Gift_00_09_08_remg_radio  <- sqldf("select * from Gift_00_09_08_remg_11 where solicitation_method  like '%Air%'")
+Gift_00_09_08_remg_radio$Original_Gift_Source <- radio
+
+
+#remg-Mail
+Gift_00_09_08_remg_12  <-  sqldf("select * from Gift_00_09_08_remg_11  where account_id not in (select account_id from Gift_00_09_08_remg_radio) ")
+Gift_00_09_08_remg_mail  <- sqldf("select * from Gift_00_09_08_remg_12  where solicitation_method  like '%Mail%'")
+Gift_00_09_08_remg_mail$Original_Gift_Source <- mail
+ 
+
+Gift_00_09_08_source_root <- rbind(Gift_00_09_08_radio, Gift_00_09_08_tv, Gift_00_09_08_web, Gift_00_09_08_newyear, Gift_00_09_08_acq, Gift_00_09_08_af, Gift_00_09_08_otw, Gift_00_09_08_mail, Gift_00_09_08_yrend, Gift_00_09_08_showcase, Gift_00_09_08_so, Gift_00_09_08_mbr, Gift_00_09_08_remg_radio, Gift_00_09_08_remg_mail)
+
+ 
+################
+#outside US
+
+outside_US$Original_Gift_Source <- tolower(outside_US$Original_Gift_Source)
+#radio/fm
+outside_US_radio <- outside_US %>% filter(str_detect(Original_Gift_Source, "fm|radio|am|air|renewal|adjust"))
+radio <- "radio"
+outside_US_radio$Original_Gift_Source <- radio
+
+ #tv
+outside_US_remg <-  sqldf("select * from outside_US where account_id not in (select account_id from outside_US_radio) ")
+ outside_US_remg_tv <- outside_US_remg %>% filter(str_detect(Original_Gift_Source, "tv|toop"))
+tv <- "tv"
+ outside_US_remg_tv$Original_Gift_Source <- tv 
+ 
+ 
+outside_US_remg_01 <-  sqldf("select * from outside_US_remg where account_id not in (select account_id from outside_US_remg_tv) ")
+outside_US_remg_passport <- outside_US_remg_01 %>% filter(str_detect(Original_Gift_Source, "passport"))
+passport <- "passport"
+outside_US_remg_passport$Original_Gift_Source <-  passport
+
+
+outside_US_remg_02 <-  sqldf("select * from outside_US_remg_01  where account_id not in (select account_id from outside_US_remg_passport) ")
+outside_US_remg_onair  <- sqldf("select * from outside_US_remg_02 where solicitation_method  like '%On Air%'")
+outside_US_remg_onair$Original_Gift_Source <- radio 
+
+
+outside_US_remg_03 <-  sqldf("select * from outside_US_remg_02  where account_id not in (select account_id from outside_US_remg_onair) ")
+outside_US_remg_web  <- sqldf("select * from outside_US_remg_03 where solicitation_method  like '%eb%'")
+outside_US_remg_web$Original_Gift_Source <- web
+
+outside_US_source_root <- rbind(outside_US_radio, outside_US_remg_tv, outside_US_remg_passport, outside_US_remg_onair, outside_US_remg_web)
+```
+
+
+
+#####EVENT files added to OH files
+Add date field if possible (month and year) from word doc
+Add event name from word doc and field for root word for event
+same col headings
+combine all 22 excels 
+```{r}
+#error probabilities
+#-Email ids can change over time but are unique and are not consistent, but to be consistent with the given gift file, used email ids as some names were same as in master gift files but with different email ids
+#- first and last names can be same or different first time giver
+
+ 
+
+#1.$$$$Nov 2017: 13-Eight Days A week Beatles Screening at GFC$$$
+
+ colnames(Attendee_List_Beatles_Screening_at_GFC) <- c("Last_name", "First_name", "Email_address", "Other")
+Attendee_List_Beatles_Screening_at_GFC_01 <- Attendee_List_Beatles_Screening_at_GFC %>% mutate(sequence = dplyr::row_number(Last_name))
+
+
+#All the individuals listed in the event file are first time donors
+Beatles_screening_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status , a.gender, b.sequence from Gift_OH_18_source_root a, Attendee_List_Beatles_Screening_at_GFC_01 b  where  a.first = b.first_name and (a.middle1 = b.last_name or a.middle2 = b.last_name or a.last = b.last_name) and a.email_address = b.Email_address")
+
+ 
+Beatles_screening_event_01 <- Beatles_screening_event %>% mutate(Event_year = 2017, Event_month = 11, Event_name = "Eight Days A week Beatles Screening at GFC")
+
+#All the individuals listed in event file but never donated
+Beatles_screening_event_02 <- sqldf("select * from Attendee_List_Beatles_Screening_at_GFC_01 where sequence not in (select sequence from  Beatles_screening_event_01) ")
+Beatles_screening_event_03 <- Beatles_screening_event_02 %>% mutate(Event_year = 2017, Event_month = 11, Event_name = "Eight Days A week Beatles Screening at GFC")
+
+ 
+
+ 
+ 
+#2.$$$September 2018, 23:Bluegrass Ramble Live 40th Anniversary Event$$$
+colnames(Attendee_List_BG_Ramble_Event) <- c("Last_name", "First_name", "Email_address", "Other1", "Other2")
+Attendee_List_BG_Ramble_Event_01 <- Attendee_List_BG_Ramble_Event %>% mutate(sequence = dplyr::row_number(Last_name))
+
+BG_Ramble_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Attendee_List_BG_Ramble_Event_01 b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+BG_Ramble_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Attendee_List_BG_Ramble_Event_01 b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+BG_Ramble_event_02 <- rbind(BG_Ramble_event, BG_Ramble_event_01)
+
+#All the individuals listed in the event file are first time donors
+BG_Ramble_event_03 <- BG_Ramble_event_02  %>% mutate(Event_year = 2018, Event_month = 9 , Event_name = "Bluegrass Ramble Live 40th Ann. Event")
+
+#All the individuals listed in the event file have never donated
+BG_Ramble_event_04 <- sqldf("select * from  Attendee_List_BG_Ramble_Event_01  a  where a.sequence not in (select sequence from BG_Ramble_event_03 )  ")
+ BG_Ramble_event_05 <- BG_Ramble_event_04 %>% mutate(Event_year = 2018, Event_month = 9 , Event_name = "Bluegrass Ramble Live 40th Ann. Event")
+ 
+
+
+#3.$$$October 2014: 1-Worthigton Premiere Party$$$
+colnames(Attendee_List_for_Worthington_Premiere) <- c("First_name", "Last_name", "Email_address")
+Attendee_List_for_Worthington_Premiere_01 <- Attendee_List_for_Worthington_Premiere %>% mutate(sequence = dplyr::row_number(Last_name))
+
+WP_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Attendee_List_for_Worthington_Premiere_01  b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+WP_event_01 <-  sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Attendee_List_for_Worthington_Premiere_01  b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+WP_event_02 <- rbind(WP_event, WP_event_01)
+
+#All the individuals listed in the event file are first time donors
+
+WP_event_03 <- WP_event_02  %>% mutate(Event_year = 2014, Event_month = 10, Event_name = "Worthington Premiere Party")
+
+#All the individuals listed in the event file have never donated
+WP_event_04 <- sqldf("select * from  Attendee_List_for_Worthington_Premiere_01  a  where a.sequence not in (select sequence from WP_event_03)  ")
+WP_event_05 <- WP_event_04  %>% mutate(Event_year = 2014, Event_month = 10, Event_name = "Worthington Premiere Party")
+
+ 
+#4.$$$Attendee_List_TGAR_Trivia_Night_8_10_18  $$$
+
+colnames(Attendee_List_TGAR_Trivia_Night_8_10_18) <- c("RSVP_date", "Last_name", "First_name", "Email_address", "Notes")
+Attendee_List_TGAR_Trivia_Night_01 <- Attendee_List_TGAR_Trivia_Night_8_10_18 %>% mutate(sequence = dplyr::row_number(Last_name))
+Attendee_List_TGAR_Trivia_Night_02 <- Attendee_List_TGAR_Trivia_Night_01 %>% filter(!is.na(Last_name))
+
+TGAR_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Attendee_List_TGAR_Trivia_Night_02  b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+TGAR_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Attendee_List_TGAR_Trivia_Night_02  b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+TGAR_event_02 <- rbind(TGAR_event, TGAR_event_01)
+
+#All the individuals listed in the event file are first time donors
+TGAR_event_03 <- TGAR_event_02  %>% mutate(Event_year = 2018, Event_month = 10, Event_name = "TGAR Trivia Night")
+
+#All the individuals listed in the event file have never donated
+TGAR_event_04 <- sqldf("select * from  Attendee_List_TGAR_Trivia_Night_02  a  where a.sequence not in (select sequence from TGAR_event_03)  ")
+TGAR_event_05 <- TGAR_event_04 %>% mutate(Event_year = 2018, Event_month = 10, Event_name = "TGAR Trivia Night")
+
+
+
+#5.$$$Attendee_List_TVW_Screening_at_GFC_8_30_17$$$
+
+colnames(Attendee_List_TVW_Screening_at_GFC_8_30_17) <- c("Last_name", "First_name", "Email_address" )
+Attendee_List_TVW_Screening_at_GFC_01 <- Attendee_List_TVW_Screening_at_GFC_8_30_17 %>% mutate(sequence = dplyr::row_number(Last_name))
+ 
+
+TVW_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Attendee_List_TVW_Screening_at_GFC_01  b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+TVW_event_01 <-  sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Attendee_List_TVW_Screening_at_GFC_01  b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+TVW_event_02 <- rbind(TVW_event, TVW_event_01)
+
+#All the individuals listed in the event file are first time donors
+TVW_event_03 <- TVW_event_02 %>% mutate(Event_year = 2017, Event_month = 08, Event_name = "Vietnam War Preview @ GFC")
+
+#All the individuals listed in the event file have never donated
+TVW_event_04 <- sqldf("select * from  Attendee_List_TVW_Screening_at_GFC_01  a  where a.sequence not in (select sequence from TVW_event_03)  ")
+TVW_event_05 <- TVW_event_04 %>% mutate(Event_year = 2017, Event_month = 08, Event_name = "Vietnam War Preview @ GFC")
+
+
+#6.$$$Attendee_List_VS2_Screening$$$
+
+colnames(Attendee_List_VS2_Screening) <- c( "First_name", "Last_name", "Email_address" )
+Attendee_List_VS2_Screening_01 <- Attendee_List_VS2_Screening %>% mutate(sequence = dplyr::row_number(Last_name))
+ 
+
+VS2_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Attendee_List_VS2_Screening_01  b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+VS2_event_01 <-  sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Attendee_List_VS2_Screening_01  b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+VS2_event_02 <- rbind(VS2_event, VS2_event_01)
+
+#All the individuals listed in the event file are first time donors
+VS2_event_03 <- VS2_event_02 %>% mutate(Event_year = 2018, Event_month = 01, Event_name = "Victoria Season 2 Premiere Screening")
+
+#All the individuals listed in the event file have never donated
+VS2_event_04 <- sqldf("select * from  Attendee_List_VS2_Screening_01 a  where a.sequence not in (select sequence from VS2_event_03)")
+VS2_event_05 <- VS2_event_04 %>% mutate(Event_year = 2018, Event_month = 01, Event_name = "Victoria Season 2 Premiere Screening")
+
+
+#7.$$$Bexley_Invitation_List_MASTER$$$
+
+colnames(Bexley_Invitation_List_MASTER) <- c( "First_name", "Last_name", "Email_address", "Affiliation", "Other", "Other2" )
+Bexley_Invitation_List_MASTER_01 <- Bexley_Invitation_List_MASTER %>% select(-6)
+Bexley_Invitation_List_MASTER_02 <- Bexley_Invitation_List_MASTER_01[-c(1:2),]
+Bexley_Invitation_List_MASTER_03 <- Bexley_Invitation_List_MASTER_02  %>% mutate(sequence = dplyr::row_number(Last_name)) 
+Bexley_Invitation_List_MASTER_04 <- Bexley_Invitation_List_MASTER_03 %>% filter(!is.na(Last_name))
+
+Bexley_Premiere_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Bexley_Invitation_List_MASTER_04 b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+Bexley_Premiere_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Bexley_Invitation_List_MASTER_04 b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+Bexley_Premiere_event_02 <- rbind(Bexley_Premiere_event, Bexley_Premiere_event_01)
+
+#All the individuals listed in the event file are first time donors
+Bexley_Premiere_event_03 <- Bexley_Premiere_event_02 %>% mutate(Event_year = 2015, Event_month = 02, Event_name = "Bexley Premiere event")
+
+#All the individuals listed in the event file have never donated
+Bexley_Premiere_event_04 <- sqldf("select * from  Bexley_Invitation_List_MASTER_04 a  where a.sequence not in (select sequence from Bexley_Premiere_event_03)")
+Bexley_Premiere_event_05 <- Bexley_Premiere_event_04 %>% mutate(Event_year = 2015, Event_month = 02, Event_name = "Bexley Premiere event")
+
+
+#8.$$$CN_NA_Premiere_Event_RSVP_MASTER_LIST$$$
+
+colnames(CN_NA_Premiere_Event_RSVP_MASTER_LIST) <- c("Last_name", "First_name", "Affiliation", "WOSU_rep", "Email_address" )
+CN_NA_Premiere_Event_01 <- CN_NA_Premiere_Event_RSVP_MASTER_LIST  %>% mutate(sequence = dplyr::row_number(Last_name)) 
+ 
+
+CNNA_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, CN_NA_Premiere_Event_01 b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+CNNA_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, CN_NA_Premiere_Event_01 b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+CNNA_event_02 <- rbind(CNNA_event, CNNA_event_01)
+
+#All the individuals listed in the event file are first time donors
+CNNA_event_03 <- CNNA_event_02  %>% mutate(Event_year = 2016, Event_month = 01, Event_name = "Columbus Neighbourhood: New Americans event")
+
+#All the individuals listed in the event file have never donated
+CNNA_event_04 <- sqldf("select * from  CN_NA_Premiere_Event_01 a  where a.sequence not in (select sequence from CNNA_event_03)")
+CNNA_event_05 <- CNNA_event_04 %>% mutate(Event_year = 2016, Event_month = 01, Event_name = "Columbus Neighbourhood: New Americans event")
+
+
+#9.$$$DA_S4_Finale_Screening_Registration_List$$$
+
+colnames(DA_S4_Finale_Screening_Registration_List) <- c("Update", "Date", "Time", "Seq_name", "address", "city", "state", "zipcode", "email" )
+DA_S4_Finale_Screening_Registration <- DA_S4_Finale_Screening_Registration_List %>% separate(col = Seq_name, into = c("Last_name", "First_name"))
+DA_S4_Finale_Screening_Registration$Last_name <- tolower(DA_S4_Finale_Screening_Registration$Last_name)
+DA_S4_Finale_Screening_Registration$First_name <- tolower(DA_S4_Finale_Screening_Registration$First_name)
+DA_S4_Finale_Screening_Registration_01 <- DA_S4_Finale_Screening_Registration  %>% mutate(sequence = dplyr::row_number(Last_name)) 
+ 
+
+DSS4_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, DA_S4_Finale_Screening_Registration_01 b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email")
+
+DSS4_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, DA_S4_Finale_Screening_Registration_01 b  where    a.email_address = b.Email")
+
+ 
+#All of  individuals listed in the event file who have donated
+DSS4_event_01 <- DSS4_event %>% mutate(Event_year = 2014, Event_month = 02, Event_name = "Downtown Abbey Season Four event")
+
+#All the individuals listed in the event file have never donated
+DSS4_event_02 <- sqldf("select * from  DA_S4_Finale_Screening_Registration_01 a  where a.sequence not in (select sequence from DSS4_event_01)")
+DSS4_event_03 <- DSS4_event_02 %>% mutate(Event_year = 2014, Event_month = 02, Event_name = "Downtown Abbey Season Four event")
+
+
+#10.$$$DAs6_Finale_Party_Registration_List$$$
+
+colnames(DAs6_Finale_Party_Registration_List) <- c( "Last_name", "First_name", "email", "Other" )
+DAs6_Finale_Party <- DAs6_Finale_Party_Registration_List %>% mutate(sequence = dplyr::row_number(Last_name)) 
+ 
+
+DSS6_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, DAs6_Finale_Party b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email")
+
+DSS6_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, DAs6_Finale_Party b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email")
+
+DSS6_event_02 <- rbind(DSS6_event, DSS6_event_01)
+
+#All of  individuals listed in the event file who have donated
+DSS6_event_03 <- DSS6_event_02  %>% mutate(Event_year = 2016, Event_month = 03, Event_name = "Downtown Abbey Season Six event")
+
+#All the individuals listed in the event file have never donated
+DSS6_event_04 <- sqldf("select * from  DAs6_Finale_Party  a  where a.sequence not in (select sequence from DSS6_event_03)")
+DSS6_event_05 <- DSS6_event_04 %>% mutate(Event_year = 2016, Event_month = 03, Event_name = "Downtown Abbey Season Six event")
+
+
+
+#11.$$$Downton_Abbey_S6_Premiere_Attendee_List$$$
+colnames(Downton_Abbey_S6_Premiere_Attendee_List) <- c("AcctID", "Seqname", "First", "Other", "col1", "col2", "addr1", "city", "state", "zip", "email")
+Downton_Abbey_S6_Premiere <- Downton_Abbey_S6_Premiere_Attendee_List %>% select(-c(5:6))
+Downton_Abbey_S6_Premiere_01 <- Downton_Abbey_S6_Premiere %>% mutate(sequence = dplyr::row_number(email)) 
+ 
+
+DSS6_screening_event <- sqldf("select a.account_id, a.first,  a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Downton_Abbey_S6_Premiere_01 b  where   a.email_address = b.email  ")
+
+DSS6_screening_event_01 <-  sqldf("select a.account_id, a.first,  a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Downton_Abbey_S6_Premiere_01 b  where   a.email_address = b.email  ")
+
+DSS6_screening_event_02 <- rbind(DSS6_screening_event, DSS6_screening_event_01)
+
+#All of  individuals listed in the event file who have donated
+DSS6_screening_event_03 <- DSS6_screening_event_02  %>% mutate(Event_year = 2015, Event_month = 12, Event_name = "Downtown Abbey Season Six Screening")
+
+#All the individuals listed in the event file have never donated
+DSS6_screening_event_04 <- sqldf("select * from  Downton_Abbey_S6_Premiere_01  a  where a.sequence   not in (select sequence  from DSS6_screening_event_03 )")
+DSS6_screening_event_05 <- DSS6_screening_event_04 %>%  mutate(Event_year = 2015, Event_month = 12, Event_name = "Downtown Abbey Season Six Screening")
+
+
+#12.$$$Downton_Abbey_Season_Four_Premiere_Event$$$
+#no email id so duplicate names are included
+
+colnames(Downton_Abbey_Season_Four_Premiere_Event) <- c( "Table", "First_name", "Last_name", "Bidder" )
+Downton_Abbey_Season_Four_Premiere_01 <-  Downton_Abbey_Season_Four_Premiere_Event[-1,]
+Downton_Abbey_Season_Four_Premiere_02 <- Downton_Abbey_Season_Four_Premiere_01 %>% mutate(sequence = dplyr::row_number(Bidder)) 
+ 
+
+DAS4_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Downton_Abbey_Season_Four_Premiere_02 b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name  )  ")
+
+DAS4_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Downton_Abbey_Season_Four_Premiere_02 b  where  a.first = b.first_name and (a.last = b.last_name or a.middle1 = b.last_name  )  ")
+
+DAS4_event_02 <- rbind(DAS4_event, DAS4_event_01)
+
+#All of  individuals listed in the event file who have donated
+DAS4_event_03 <- DAS4_event_02   %>% mutate(Event_year = 2014, Event_month = 01, Event_name = "Downtown Abbey Season Four Premiere event")
+
+#All the individuals listed in the event file have never donated
+DAS4_event_04 <- sqldf("select * from  Downton_Abbey_Season_Four_Premiere_02   a  where a.sequence not in (select sequence from DAS4_event_03)")
+DAS4_event_05 <- DAS4_event_04 %>% mutate(Event_year = 2014, Event_month = 01, Event_name = "Downtown Abbey Season Four Premiere event")
+
+
+#13.$$$Classical 101 program$$$
+
+colnames(Front_Row_Center_RSVPs_as_of_4_26_18) <- c("Last_name", "First_name",  "Email_address" )
+FRC_Classical_01 <- Front_Row_Center_RSVPs_as_of_4_26_18 %>% mutate(sequence = dplyr::row_number(Last_name))
+ 
+#All the individuals listed in the event file are first time donors
+FRC_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, FRC_Classical_01   b  where  a.first = b.First_name and (a.last = b.last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email_address")
+
+
+#All the individuals listed in the event file have never donated
+FRC_event_01 <- sqldf("select * from  FRC_Classical_01  a  where a.sequence not in (select sequence from FRC_event)")
+FRC_event_02 <- FRC_event_01 %>% mutate(Event_year = 2018, Event_month = 04, Event_name = "FRC-Classical 101 program launch reception")
+ 
+
+
+#14.$$$Master_RSVP_List_Victoria_Screening$$$
+
+Master_RSVP_List_Victoria_01 <- Master_RSVP_List_Victoria_Screening_1_6_17_xls  %>% mutate(sequence = dplyr::row_number(LAST))
+ 
+
+Victoria_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Master_RSVP_List_Victoria_01  b  where  a.first = b.FIRST and (a.last = b.LAST or a.middle1 = b.LAST or a.middle2 = b.LAST) and a.email_address = b.EMAIL")
+
+Victoria_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Master_RSVP_List_Victoria_01  b  where  a.first = b.FIRST and (a.last = b.LAST or a.middle1 = b.LAST or a.middle2 = b.LAST) and a.email_address = b.EMAIL")
+
+Victoria_event_02 <- rbind(Victoria_event, Victoria_event_01)
+
+#All the individuals listed in the event file are first time donors
+Victoria_event_03 <- Victoria_event_01 %>% mutate(Event_year = 2017, Event_month = 01, Event_name = "Victoria Season 1 Premiere Screening")
+
+#All the individuals listed in the event file have never donated
+Victoria_event_04 <- sqldf("select * from  Master_RSVP_List_Victoria_01 a  where a.sequence not in (select sequence from Victoria_event_03)")
+Victoria_event_05 <- Victoria_event_04  %>% mutate(Event_year = 2017, Event_month = 01, Event_name = "Victoria Season 1 Premiere Screening")
+
+
+#15.$$$Neil_Legacy_ITK_RSVP$$$
+colnames(Neil_Legacy_ITK_RSVP) <- c("Last_name", "First_name" )
+Neil_Legacy_ITK_RSVP_01 <- Neil_Legacy_ITK_RSVP   %>% mutate(sequence = dplyr::row_number(First_name))
+ 
+
+Niel_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Neil_Legacy_ITK_RSVP_01  b  where  a.first = b.first_name and (a.last = b.Last_name or a.middle1 = b.Last_name or a.middle2 = b.Last_name)")
+
+Niel_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Neil_Legacy_ITK_RSVP_01  b  where  a.first = b.first_name and (a.last = b.Last_name or a.middle1 = b.Last_name or a.middle2 = b.Last_name)")
+
+Niel_event_02 <- rbind(Niel_event, Niel_event_01)
+
+#All the individuals listed in the event file are first time donors
+Niel_event_03 <- Niel_event_02 %>% mutate(Event_year = 2018, Event_month = 01, Event_name = "Niel Legacy Event")
+
+#All the individuals listed in the event file have never donated
+Niel_event_04 <- sqldf("select * from  Neil_Legacy_ITK_RSVP_01 a  where a.sequence not in (select sequence from Niel_event_03)")
+Niel_event_05 <- Niel_event_04 %>% mutate(Event_year = 2018, Event_month = 01, Event_name = "Niel Legacy Event")
+
+
+#16.$$$RSVP_List_PC_Fall_Preview_2018$$$
+colnames(RSVP_List_PC_Fall_Preview_2018 ) <- c("Email", "RSVP", "Last", "First", "Other", "Attend", "Notes" )
+RSVP_List_PC_Fall_01 <- RSVP_List_PC_Fall_Preview_2018   %>% mutate(sequence = dplyr::row_number(First))
+ 
+
+RSVP_List_PC_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, RSVP_List_PC_Fall_01  b  where  a.first = b.first and (a.last = b.Last or a.middle1 = b.Last ) ")
+
+RSVP_List_PC_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, RSVP_List_PC_Fall_01  b  where  a.first = b.first and (a.last = b.Last or a.middle1 = b.Last  ) ")
+
+RSVP_List_PC_event_02 <- rbind(RSVP_List_PC_event_01, RSVP_List_PC_event)
+
+#All the individuals listed in the event file are first time donors
+RSVP_List_PC_event_03 <- RSVP_List_PC_event_02  %>% mutate(Event_year = 2018, Event_month = 09, Event_name = "Producers Club Fall Preview")
+
+#All the individuals listed in the event file have never donated
+RSVP_List_PC_event_04 <- sqldf("select * from  RSVP_List_PC_Fall_01 a  where a.sequence not in (select sequence from RSVP_List_PC_event_03 )")
+RSVP_List_PC_event_05 <- RSVP_List_PC_event_04 %>% mutate(Event_year = 2018, Event_month = 09, Event_name = "Producers Club Fall Preview")
+
+
+#17.$$$RSVP_List_Vivaldi_Dinner_2017$$$
+
+colnames(RSVP_List_Vivaldi_Dinner_2017) <- c( "Email", "RSVP", "Last", "First", "Middle", "Attend", "Pay", "Notes")
+Vivaldi_Dinner <- RSVP_List_Vivaldi_Dinner_2017 %>% mutate(sequence = dplyr::row_number(First)) 
+ 
+
+Vivaldi_Dinner_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Vivaldi_Dinner b  where  a.first = b.first and (a.last = b.last or a.middle1 = b.last or a.middle2 = b.last)  ")
+
+Vivaldi_Dinner_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, Vivaldi_Dinner b  where  a.first = b.first and (a.last = b.last or a.middle1 = b.last or a.middle2 = b.last)  ")
+
+Vivaldi_Dinner_event_02 <- rbind(Vivaldi_Dinner_event, Vivaldi_Dinner_event_01)
+
+#All of  individuals listed in the event file who have donated
+Vivaldi_Dinner_03 <- Vivaldi_Dinner_event_02 %>% mutate(Event_year = 2017, Event_month = 10, Event_name = "Vivaldi Dinner at Refectory")
+
+#All the individuals listed in the event file have never donated
+Vivaldi_Dinner_04 <- sqldf("select * from  Vivaldi_Dinner a  where a.sequence not in (select sequence from Vivaldi_Dinner_03)")
+Vivaldi_Dinner_05 <- Vivaldi_Dinner_04 %>% mutate(Event_year = 2017, Event_month = 10, Event_name = "Vivaldi Dinner at Refectory")
+
+
+#18.$$$RSVP_Master_List_C101_Reception$$$
+
+ 
+C101 <- RSVP_Master_List_C101_Reception  %>% mutate(sequence = dplyr::row_number(LAST)) 
+ 
+
+C101_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, C101 b  where  a.first = b.FIRST and (a.last = b.Last or a.middle1 = b.last or a.middle2 = b.last) and a.email_address = b.Email")
+
+C101_event_01 <-  sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, C101 b  where  a.first = b.FIRST and (a.last = b.Last or a.middle1 = b.last or a.middle2 = b.last) and a.email_address = b.Email")
+
+C101_event_02 <- rbind(C101_event, C101_event_01)
+
+#All the individuals listed in the event file are first time donors
+C101_03 <- C101_event_02  %>% mutate(Event_year = 2016, Event_month = 11, Event_name = "Classical 101 Program Launch Reception")
+
+#All the individuals listed in the event file have never donated
+C101_04 <- sqldf("select * from  C101 a  where a.sequence not in (select sequence from C101_03)")
+C101_05 <- C101_04 %>% mutate(Event_year = 2016, Event_month = 11, Event_name = "Classical 101 Program Launch Reception")
+
+
+#19.$$$TriVillage_RSVP_4_30_2015$$$
+
+colnames(TriVillage_RSVP_4_30_2015) <- c( "First_name", "Last_name", "Email") 
+
+TriVillage <- TriVillage_RSVP_4_30_2015  %>% mutate(sequence = dplyr::row_number(First_name)) 
+ 
+
+TriVillage_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, TriVillage b  where  a.first = b.first_name and (a.last = b.Last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email")
+
+TriVillage_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, TriVillage b  where  a.first = b.first_name and (a.last = b.Last_name or a.middle1 = b.last_name or a.middle2 = b.last_name) and a.email_address = b.Email")
+
+TriVillage_event_02 <- rbind(TriVillage_event, TriVillage_event_01)
+
+#All the individuals listed in the event file are first time donors
+TriVillage_event_03 <- TriVillage_event_02  %>% mutate(Event_year = 2015, Event_month = 05, Event_name = "Tri-Village Premiere Event")
+
+#All the individuals listed in the event file have never donated
+TriVillage_event_04 <- sqldf("select * from  TriVillage a  where a.sequence not in (select sequence from TriVillage_event_03 )")
+TriVillage_event_05 <- TriVillage_event_04 %>%  mutate(Event_year = 2015, Event_month = 05, Event_name = "Tri-Village Premiere Event")
+
+
+#20.$$$WOSU_WI65_RSVP_as_of_5_18_17$$$
+
+colnames(WOSU_WI65_RSVP_as_of_5_18_17) <- c( "First_name", "Last_name", "Org") 
+
+WI65 <- WOSU_WI65_RSVP_as_of_5_18_17  %>% mutate(sequence = dplyr::row_number(First_name)) 
+ 
+
+WI65_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, WI65 b  where  a.first = b.first_name and (a.last = b.Last_name or a.middle1 = b.last_name )  ")
+
+WI65_event_01 <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_09_source_root a, WI65 b  where  a.first = b.first_name and (a.last = b.Last_name or a.middle1 = b.last_name )  ")
+
+WI65_event_02 <- rbind(WI65_event, WI65_event_01)
+
+#All the individuals listed in the event file are first time donors
+WI65_event_03 <- WI65_event_02 %>% mutate(Event_year = 2017, Event_month = 05, Event_name = "WI65 Event")
+
+#All the individuals listed in the event file have never donated
+WI65_event_04 <- sqldf("select * from  WI65 a  where a.sequence not in (select sequence from WI65_event_03 )")
+WI65_event_05 <- WI65_event_04 %>% mutate(Event_year = 2017, Event_month = 05, Event_name = "WI65 Event")
+
+
+
+#21.$$$WWDTM_VIP_Guest_List $$$
+
+colnames(WWDTM_VIP_Guest_List) <- c( "TASID", "First", "Last", "Address", "City", "State", "Zip", "Org", "Tickets", "Notes") 
+
+WWDTM_01 <- WWDTM_VIP_Guest_List[-c(1:2),]
+WWDTM_02 <- WWDTM_01  %>% mutate(sequence = dplyr::row_number(First)) 
+ 
+
+WWDTM_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, WWDTM_02 b  where  a.first = b.first and (a.last = b.Last or a.middle1 = b.last )  ")
+
+ 
+#All the individuals listed in the event file are first time donors
+WWDTM_event_01 <- WWDTM_event %>% mutate(Event_year = 2018, Event_month = 05, Event_name = "Wait,Wait live in Columbus Reception")
+
+#All the individuals listed in the event file have never donated
+WWDTM_event_02 <- sqldf("select * from  WWDTM_02 a  where a.sequence not in (select sequence from WWDTM_event_01 )")
+WWDTM_event_03 <- WWDTM_event_02 %>% mutate(Event_year = 2018, Event_month = 05, Event_name = "Wait,Wait live in Columbus Reception")
+
+
+
+#22.$$$X2018_Innovation_Mixer_Registration_Responses$$$
+
+colnames(X2018_Innovation_Mixer_Registration_Responses_) <- c( "Last", "First", "Email", "Dist", "Grade", "Email", "Col1", "Col2", "Col3", "Col4") 
+
+ 
+Mixer <- X2018_Innovation_Mixer_Registration_Responses_  %>% mutate(sequence = dplyr::row_number(First)) 
+ 
+#All the individuals listed in the event file are first time donors
+Mixer_event <- sqldf("select a.account_id, a.first, a.middle1, a.middle2, a.last, a.original_gift_source, a.city, a.state, a.gift_year, a.gift_month, a.original_gift_amount, a.account_status, a.gender, b.sequence  from Gift_OH_18_source_root a, Mixer b  where  a.first = b.first and (a.last = b.Last or a.middle1 = b.last and a.middle2 = b.last) and a.email_address = b.email ")
+
+
+#All the individuals listed in the event file have never donated
+Mixer_02 <- sqldf("select * from  Mixer a  where a.sequence not in (select sequence from Mixer_event )")
+
+Mixer_03 <- Mixer_02 %>% mutate(Event_year = 2018, Event_month = 04, Event_name = "Innovation Mixer at Boat House")
+
+
+######Combine all who visited events and are first time donors
+Event_Donors <- rbind(Beatles_screening_event_01,
+BG_Ramble_event_03,
+WP_event_03 ,
+TGAR_event_03, 
+TVW_event_03,
+VS2_event_03,
+Bexley_Premiere_event_03, 
+CNNA_event_03,
+DSS4_event_01,
+DSS6_event_03,
+DSS6_screening_event_03, 
+DAS4_event_03,
+Victoria_event_03,
+Niel_event_03,
+RSVP_List_PC_event_03,
+Vivaldi_Dinner_03 ,
+C101_03,
+TriVillage_event_03,
+WI65_event_03,
+WWDTM_event_01
+)
+
+
+#####combine all who visited events and never donated
+#first select first name, last name, eventname, event year and event month
+ 
+BSE_03 <- Beatles_screening_event_03 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+BGR_05 <- BG_Ramble_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+WPE_05 <- WP_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+TGAR_05 <- TGAR_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+TVW_05 <- TVW_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+VS2_05 <- VS2_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+Bex_05 <- Bexley_Premiere_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+CNN_05 <- CNNA_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+DS4_03 <- DSS4_event_03 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+DS6_05 <- DSS6_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+DSS6_05 <- DSS6_screening_event_05 %>% select(   Seqname, First , Event_year, Event_month, Event_name)
+colnames(DSS6_05) <- c("Last_name", "First_name", "Event_year", "Event_month", "Event_name")
+
+DAS4_05 <- DAS4_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+FRC_02 <- FRC_event_02 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+Vict_05 <- Victoria_event_05 %>% select(LAST, FIRST, Event_year, Event_month, Event_name)
+colnames(Vict_05) <- c("Last_name", "First_name", "Event_year", "Event_month", "Event_name")
+Niel_05 <- Niel_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+RSVP_05 <- RSVP_List_PC_event_05 %>% select(Last, First, Event_year, Event_month, Event_name)
+colnames(RSVP_05) <- c("Last_name", "First_name", "Event_year", "Event_month", "Event_name")
+Viv_05 <- Vivaldi_Dinner_05 %>% select(Last, First, Event_year, Event_month, Event_name)
+colnames(Viv_05 ) <- c("Last_name", "First_name", "Event_year", "Event_month", "Event_name")
+C101_06 <- C101_05 %>% select(LAST, FIRST, Event_year, Event_month, Event_name)
+colnames(C101_06 ) <- c("Last_name", "First_name", "Event_year", "Event_month", "Event_name")
+Tri_05 <- TriVillage_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+WI65_05 <- WI65_event_05 %>% select(Last_name, First_name, Event_year, Event_month, Event_name)
+WWD_03 <- WWDTM_event_03 %>% select(Last, First, Event_year, Event_month, Event_name)
+colnames(WWD_03 ) <- c("Last_name", "First_name", "Event_year", "Event_month", "Event_name")
+Mix_03 <- Mixer_03 %>% select(Last, First, Event_year, Event_month, Event_name)
+colnames(Mix_03  ) <- c("Last_name", "First_name", "Event_year", "Event_month", "Event_name")
+
+Event_Non_Donors <- rbind(BSE_03, BGR_05, WPE_05, TGAR_05,TVW_05,VS2_05, Bex_05, CNN_05, DS4_03,DS6_05, DSS6_05, DAS4_05,FRC_02, Vict_05, Niel_05, RSVP_05,Viv_05, C101_06,
+                          Tri_05,WI65_05, WWD_03, Mix_03)
+Event_Non_Donors_01 <- Event_Non_Donors %>% mutate(Account_ID =  dplyr::row_number(Last_name))
+#Add gender to Event_Non_Donors
+END <- Event_Non_Donors_01 %>% mutate(min_year = 1940, max_year = 2000) 
+END_01 <- END %>% gender_df(name_col = "First_name", year_col = c("min_year", "max_year"), method = "ssa")
+END_02<- Event_Non_Donors_01 %>% left_join(END_01, by = c("First_name" = "name"))
+ 
+Event_Non_Donors_02 <- END_02
+ 
+
+```
+
+Splitting into Regions and Divisions
+```{r}
+#Filter states into 7 regions in  United States
+USNED1 <- c("CT", "ME", "MA", "NH", "RI", "VT")
+USNED2 <- c("NJ", "NY", "PA")
+USMWD3 <- c("IL", "IN", "MI", "OH", "WI")
+USMWD4 <- c("IA", "KS", "MN", "MO", "NE", "ND", "SD")
+USSD5  <- c("DE", "FL", "GA", "MD", "NC", "SC", "VA", "DC", "WV")
+USSD6 <-  c("AL", "KY", "MS", "TN")
+USSD7  <- c("AR", "LA", "OK", "TX")
+USWD8  <- c("AZ", "CO", "ID", "MO", "NV", "NM", "UT", "WY")
+USWD9  <- c("AL", "CA", "HI", "OR", "WA")
+#Filter for US Commonwealth and Territories
+USComTer <- c("AS", "FM", "GU", "MH", "MP", "PW", "PR", "VI")
+
+#outside US
+G09_08_root  <- Gift_00_09_08_source_root  %>%  mutate(Division = ifelse(State  %in%  USNED1 , 1, ifelse(State  %in% USNED2 , 2, ifelse(State %in%  USMWD3, 3, ifelse(State  %in%  USMWD4, 4, ifelse(State  %in%  USSD5, 5, ifelse(State %in% USSD6, 6, ifelse(State %in% USSD7, 7, ifelse(State %in%  USWD8, 8, ifelse(State %in%  USWD9, 9, ifelse(State %in%  USComTer, 10, 0)))))))))))
+   
+G09_08_root_01   <-G09_08_root %>%  mutate(Region = ifelse(Division == 1 , 1, ifelse(Division == 2 , 1, ifelse(Division == 3, 2, ifelse(Division == 4, 2, ifelse(Division == 5, 3, ifelse(Division == 6, 3, ifelse(Division == 7, 3, ifelse(Division == 8, 4, ifelse(Division == 9, 4, 5))))))))))
+  
+ G10_18_root  <- Gift_10_18_08_source_root  %>%  mutate(Division = ifelse(State  %in%  USNED1 , 1, ifelse(State  %in% USNED2 , 2, ifelse(State %in%  USMWD3, 3, ifelse(State  %in%  USMWD4, 4, ifelse(State  %in%  USSD5, 5, ifelse(State %in% USSD6, 6, ifelse(State %in% USSD7, 7, ifelse(State %in%  USWD8, 8, ifelse(State %in%  USWD9, 9, ifelse(State %in%  USComTer, 10, 0)))))))))))       
+
+G10_18_root_01    <- G10_18_root  %>%  mutate(Region = ifelse(Division == 1 , 1, ifelse(Division == 2 , 1, ifelse(Division == 3, 2, ifelse(Division == 4, 2, ifelse(Division == 5, 3, ifelse(Division == 6, 3, ifelse(Division == 7, 3, ifelse(Division == 8, 4, ifelse(Division == 9, 4, 5))))))))))
+ 
+
+#Organization  
+GOrg_root  <- Gift_Org_Final_source_root   %>%  mutate(Division = ifelse(State  %in%  USNED1 , 1, ifelse(State  %in% USNED2 , 2, ifelse(State %in%  USMWD3, 3, ifelse(State  %in%  USMWD4, 4, ifelse(State  %in%  USSD5, 5, ifelse(State %in% USSD6, 6, ifelse(State %in% USSD7, 7, ifelse(State %in%  USWD8, 8, ifelse(State %in%  USWD9, 9, ifelse(State %in%  USComTer, 10, 0)))))))))))  
+  
+  
+GOrg_root_01  <- GOrg_root  %>%  mutate(Region = ifelse(State  %in%  USNED1 , 1, ifelse(State  %in% USNED2 , 2, ifelse(State %in%  USMWD3, 3, ifelse(State  %in%  USMWD4, 4, ifelse(State  %in%  USSD5, 5, ifelse(State %in% USSD6, 6, ifelse(State %in% USSD7, 7, ifelse(State %in%  USWD8, 8, ifelse(State %in%  USWD9, 9, ifelse(State %in%  USComTer, 10, 0))))))))))) 
+    
+
+#Gift OH  
+Gift_OH_18_root_01 <- Gift_OH_18_source_root %>%   mutate(Division = ifelse(State  %in%  USNED1 , 1, ifelse(State  %in% USNED2 , 2, ifelse(State %in%  USMWD3, 3, ifelse(State  %in%  USMWD4, 4, ifelse(State  %in%  USSD5, 5, ifelse(State %in% USSD6, 6, ifelse(State %in% USSD7, 7, ifelse(State %in%  USWD8, 8, ifelse(State %in%  USWD9, 9, ifelse(State %in%  USComTer, 10, 0)))))))))))  
+   
+Gift_OH_18_root_02 <- Gift_OH_18_root_01 %>%  mutate(Region = ifelse(State  %in%  USNED1 , 1, ifelse(State  %in% USNED2 , 2, ifelse(State %in%  USMWD3, 3, ifelse(State  %in%  USMWD4, 4, ifelse(State  %in%  USSD5, 5, ifelse(State %in% USSD6, 6, ifelse(State %in% USSD7, 7, ifelse(State %in%  USWD8, 8, ifelse(State %in%  USWD9, 9, ifelse(State %in%  USComTer, 10, 0))))))))))) 
+ 
+Gift_OH_09_root_01 <- Gift_OH_09_source_root %>% mutate(Division = ifelse(State  %in%  USNED1 , 1, ifelse(State  %in% USNED2 , 2, ifelse(State %in%  USMWD3, 3, ifelse(State  %in%  USMWD4, 4, ifelse(State  %in%  USSD5, 5, ifelse(State %in% USSD6, 6, ifelse(State %in% USSD7, 7, ifelse(State %in%  USWD8, 8, ifelse(State %in%  USWD9, 9, ifelse(State %in%  USComTer, 10, 0)))))))))))  
+
+Gift_OH_09_root_02 <- Gift_OH_09_root_01 %>%  mutate(Region = ifelse(State  %in%  USNED1 , 1, ifelse(State  %in% USNED2 , 2, ifelse(State %in%  USMWD3, 3, ifelse(State  %in%  USMWD4, 4, ifelse(State  %in%  USSD5, 5, ifelse(State %in% USSD6, 6, ifelse(State %in% USSD7, 7, ifelse(State %in%  USWD8, 8, ifelse(State %in%  USWD9, 9, ifelse(State %in%  USComTer, 10, 0))))))))))) 
+
+```
+
+
+Main files
+```{r}
+ GOrg_root_02 <-  GOrg_root_01 %>% mutate(Donors_from = "Organizations")
+
+ Gout_US <- outside_US_source_root %>% mutate(Donors_from = "Outside_US")
+ 
+ G10_18_root_02     <-  G10_18_root_01 %>% mutate(Donors_from = "Outside-OH-2010-2018") 
+  G09_08_root_02 <- G09_08_root_01 %>% mutate(Donors_from = "Outside-OH-2000-2009")
+  
+ Gift_OH_18_root_01 <- Gift_OH_18_root_02  %>% mutate(Donors_from = "OH-2010-2018")
+ Gift_OH_09_root_01 <- Gift_OH_09_root_02   %>% mutate(Donors_from = "OH-2000-2009")
+
+GOrg_root_03 <- GOrg_root_02[ , -c(2,3,6)]
+Gout_US_01 <- Gout_US[ , -c(2,3,6)]
+G10_18_root_03 <-  G10_18_root_02[ , -c(2,3,4,5,6,9)]
+G09_08_root_03 <- G09_08_root_02[ , -c(2,3,4,5,6,9)]
+ Gift_OH_18_root_02 <- Gift_OH_18_root_01[ , -c(2,3,4,5,6,9)]
+Gift_OH_09_root_02 <- Gift_OH_09_root_01[ , -c(2,3,4,5,6,9)]
+
+
+Final_file <- rbind(G10_18_root_03, G09_08_root_03, Gift_OH_18_root_02,  Gift_OH_09_root_02 )
+
+Final_OH <- rbind(Gift_OH_18_root_02,  Gift_OH_09_root_02)
+Final_OutsideOH <- rbind(G10_18_root_03, G09_08_root_03)
+
+####Apply kNN gender
+Final_OH_kNN <- kNN(Final_OH, variable = c("gender"), k = 5)
+sqldf("select * from Final_OH where gender = 'NA' ")
+  
+Final_OutsideOH_kNN <- kNN(Final_OutsideOH, variable = c("gender"), k = 5)
+sqldf("select * from Final_OutsideOH where gender = 'NA' ")
+
+Final_file_kNN <- kNN(Final_file, variable = c("gender"), k = 5)
+#sqldf("select count(*) from Final_file where gender is NULL  ")
+#sqldf("select count(*) from Final_file_kNN where gender_imp = 1" ) 
+
+
+Final_file_kNN$City <- as.factor(Final_file_kNN$City)
+Final_file_kNN$State <- as.factor(Final_file_kNN$State)
+Final_file_kNN$Account_Status <- as.factor(Final_file_kNN$Account_Status)
+Final_file_kNN$Original_Gift_Source <- as.factor(Final_file_kNN$Original_Gift_Source) 
+Final_file_kNN$Original_Gift_Mode <-  as.factor(Final_file_kNN$Original_Gift_Mode)
+Final_file_kNN$Solicitation_Type <- as.factor(Final_file_kNN$Solicitation_Type)
+Final_file_kNN$Solicitation_Method <- as.factor(Final_file_kNN$Solicitation_Method)
+Final_file_kNN$Orig_Gift_Has_Prm <- as.factor(Final_file_kNN$Orig_Gift_Has_Prm)
+Final_file_kNN$gender <- as.character(Final_file_kNN$gender)
+ 
+ 
+```
+ 
+ 
+#####Exploratory Analysis of Event file
+We see in the last 20 years more non- donors in the events that are hosted and advertised by WOSU and somehow relate back to their programming.  I see this as a good potential subjects walking into these events willingly and can be good opportunity for solicitation or conjoint survey to discover unmet needs or probe into the downstream effect of the study of demand being realised.
+```{r}
+
+EV_Donors <- Event_Donors %>% select(Middle1, First, Event_year, Event_month, Event_name, Account_ID, gender)
+colnames(EV_Donors) <- c("Last_name", "First_name", "Event_year", "Event_month", "Event_name", "Account_ID", "gender")
+
+EV_Donors_01 <- EV_Donors %>% mutate(Donors = "Donors")
+
+EV_Non_Donors <- Event_Non_Donors_02 %>% select(Last_name, First_name, Event_year, Event_month, Event_name, Account_ID, gender)
+
+EV_Non_Donors_01 <- EV_Non_Donors %>% mutate(Donors = "Non-Donors")
+
+EV <- rbind(EV_Donors_01, EV_Non_Donors_01)
+
+EV_01 <- kNN(EV, variable = c("gender"), k = 10)
+
+p1<- EV_01 %>%
+  group_by(gender) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(gender), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Gender") + geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust =1),axis.title.x=element_blank())  
+
+p2<- EV_01 %>%
+  group_by(Donors) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Donors), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Event_Attendees") + geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust =1),axis.title.x=element_blank())  
+
+ EV_01 $Donors <- fct_infreq(EV_01 $Donors)
+               #percentage
+                  EV_01  %>%   
+   ggplot(aes(x = Donors, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25)  + ggtitle("Event Attendees in percentage") + labs( x= "Original Gift Source", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+                  
+                  
+
+
+
+p3<- EV_01 %>%
+  group_by(Event_year) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Event_year), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Event_Year_Attendence") + geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust =1),axis.title.x=element_blank())  
+
+
+p4<- EV_01 %>%
+  group_by(Event_month) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Event_month), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Event_Month_Attendence") + geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust =1),axis.title.x=element_blank())  
+
+
+    EV_01 %>%
+  group_by(Event_name) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = reorder(as.factor(Event_name), counts) , y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Event_Names_Attended") + geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust =1),axis.title.x=element_blank())  
+
+ 
+#grid.arrange(p5, (p2, p3, p4, heights=c(1/4, 1.5/4), ncol=3)), ncol =1)
+#grid.arrange(p5, (c(p1, p2, p3, p4), nrow = 2, ncol = 2)), ncol=1)
+
+  
+
+grid.arrange(p1,p2, p3, p4, nrow=2, ncol =2)
+
+grid.arrange(p5, nrow=1, ncol =1)
+
+
+#Bivariate analysis
+
+b1 <-  EV_01  %>%
+ ggplot(aes(x = Event_year, color = Donors)) + geom_density(alpha = 0.5) + ggtitle("Event_Year") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+ 
+ b2 <-  EV_01  %>%
+ ggplot(aes(x =  Event_month, color = Donors)) + geom_density(alpha = 0.5) + ggtitle("Event_Month") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+   
+ grid.arrange(b1, b2, nrow=2, ncol =1)
+   
+```
+ 
+
+#####Exploratory Data Analysis
+ 
+```{r}
+# COUNT FOR US, OH, OUTSIDE US , ORGANIZATIONS
+
+x1 <-  count(GOrg_root_03, 'Donors_from')
+x2 <- count(Gout_US_01, 'Donors_from' )
+x3 <- count(Final_OutsideOH, 'Donors_from')
+x4 <- count(Final_OH, 'Donors_from')
+
+x_Donors <- rbind(x1, x2, x3, x4)
+ x_Donors %>%  ggplot(aes(Donors_from, freq)) + geom_col(fill = "coral1")   + labs(title = "Categorical count of WOSU Donors 2000-2018") +geom_text(aes(label= freq), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+ 
+  
+ #percentage of WOSU donors 
+ Final_file_kNN$Donors_from<- fct_infreq(Final_file_kNN$Donors_from)
+  Final_file_kNN %>%   
+   ggplot(aes(x =Donors_from, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25)  +  labs(  y= "Percent") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + labs(title = "Categorical percentage of WOSU Donors-Individuals 2000-2018")
+ 
+
+# Gift in OH,    - Donor demographics by Cities upto count >50
+   
+  Final_OH %>%
+  group_by(City) %>%
+  dplyr::summarise(counts = n()) %>% filter(counts >500) %>%
+  ggplot(aes(x = reorder(as.factor(City), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Cities in OH 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_y_continuous(limits = c(0, 30000))
+
+
+  Final_OH %>%
+  group_by(City) %>%
+  dplyr::summarise(counts = n()) %>% filter(counts <500 & counts >200) %>%
+  ggplot(aes(x = reorder(as.factor(City), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Cities in OH 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_y_continuous(limits = c(0, 700))
+
+  Final_OH %>%
+  group_by(City) %>%
+  dplyr::summarise(counts = n()) %>% filter(counts <200  & counts >100) %>%
+  ggplot(aes(x =reorder(as.factor(City), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Cities in OH 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_y_continuous(limits = c(0, 900))
+
+  Final_OH %>%
+  group_by(City) %>%
+  dplyr::summarise(counts = n()) %>% filter(counts <100 & counts >50) %>%
+  ggplot(aes(x = as.factor(City), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Cities in OH") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_y_continuous(limits = c(0, 4000))
+ 
+
+  #Outside OH individuals counts >15
+  #new field concatenating city and state
+  Final_OutsideOH_01 <- Final_OutsideOH_kNN %>% unite("CitySt", c("City", "State"), sep = "-")
+  Final_OutsideOH_01 %>%
+  group_by(CitySt) %>%
+  dplyr::summarise(counts = n()) %>%  filter(counts  > 15) %>%
+  ggplot(aes(x =reorder(as.factor(CitySt), counts),  y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Cities Outside OH -2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_y_continuous(limits = c(0, 75))
+
+ 
+  
+  
+  #new field concatenating city and state
+  GOrg_root_03_01 <- GOrg_root_03  %>% unite("CitySt", c("City", "State"), sep = "-")
+  GOrg_root_03_01  %>%
+  group_by(CitySt) %>%
+  dplyr::summarise(counts = n()) %>%  
+  ggplot(aes(x =reorder(as.factor(CitySt), counts), y=counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Organizations 2000-2018") + geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_y_continuous(limits = c(0, 50)) 
+ 
+
+# Get canadian states abbreviations 
+urlCanadaStates <- "https://www.ncbi.nlm.nih.gov/books/NBK7254/"
+htmlpageCanada <- GET(urlCanadaStates )
+CanadaTabs <-readHTMLTable(rawToChar(htmlpageCanada$content), stringsAsFactors=F)
+
+CanadaTabs1 <- CanadaTabs[[1]]
+colnames(CanadaTabs1) <- c("Province", "Abbreviation")
+as_tibble(CanadaTabs1)
+CanadaTabs2 <- CanadaTabs1 %>% filter(str_detect(Abbreviation, "BC|ON|QC|AB")) 
+
+USTabs1 <- CanadaTabs[[2]]
+colnames(USTabs1) <- c("State1", "State")
+as_tibble(USTabs1)
+
+Gout_US_02 <- Gout_US_01   %>% mutate(Province3 =  ifelse(Gout_US_01$State %in%  CanadaTabs2$Abbreviation, CanadaTabs2$Province, Gout_US_01$State))
+
+ 
+
+ Gout_US_02  %>%
+  group_by(Province3) %>%
+  dplyr::summarise(counts = n()) %>%  
+  ggplot(aes(x =reorder(as.factor(Province3), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1") + ggtitle("Outside United States 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_y_continuous(limits = c(0, 10)) 
+
+  ####Geomap
+  usa <- map_data("usa")
+state <- map_data("state")
+as_tibble(usa)
+as_tibble(state)  
+bbscnt <- Final_OutsideOH_kNN %>% group_by(State) %>% dplyr::summarize(n=n() ) %>% ungroup()
+ as_tibble(bbscnt)
+stabv <- USTabs1 %>% left_join(bbscnt, by= "State") 
+stabv$State1 <- tolower(stabv$State1)
+colnames(stabv) <- c("region", "State", "n")
+which(stabv$State == "OH")
+stabv[41, 3] <- 0
+
+stabv_01 <- stabv %>% filter(!is.na(n))
+stabv_02 <- stabv_01 %>% left_join(state, by = "region")
+
+ 
+ggplot(stabv_02, aes(x=long, y=lat, group=group)) +
+  geom_polygon(aes(fill=n)) +
+  scale_fill_gradientn(colors=c("#2c7bb6","#abd9e9","#ffffbf","#fdae61","#d7191c")) +
+ geom_path() + coord_map() +theme_void() 
+  ####
+  
+ 
+ 
+ 
+ ############
+ 
+  ggplot(Final_file_kNN) + geom_histogram(aes(Gift_Year), binwidth = 1, fill = "blue",col = "black")
+  ggplot(Final_file_kNN) + geom_histogram(aes(Gift_Month), binwidth = 1, fill = "blue",col = "black")  
+ ggplot(Final_file_kNN) + geom_histogram(aes(Region), binwidth = 1, fill = "blue",col = "black") 
+ ggplot(Final_file_kNN) + geom_histogram(aes(Division), binwidth = 1, fill = "blue",col = "black") 
+ 
+ #percentage 
+ Final_file_kNN %>%   
+   ggplot(aes(x = Gift_Year, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.5, size = 3)  + ggtitle("First time Donors Percentage by Year 2000-2018") + labs( x= "Gift Year ", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+ 
+ 
+ Final_file_kNN %>%   
+   ggplot(aes(x = Gift_Year, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.5, size = 3)  + ggtitle("First time Donors Percentage by Year 2000-2018 ") + labs( x= "Gift Year ", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+ 
+
+
+ 
+ Final_file_kNN %>%   
+   ggplot(aes(x = Region, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.5, size = 3)  + ggtitle("First time Donors Percentage by Region 2000-2018 ") + labs( x= "Gift Year ", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+ 
+ 
+ 
+ Final_file_kNN %>%   
+   ggplot(aes(x = Division, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.5, size = 3)  + ggtitle("First time Donors Percentage by Division 2000-2018 ") + labs( x= "Gift Year ", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust=1),axis.title.x=element_blank())  + scale_x_continuous(breaks = c(1,2, 3,4, 5,6, 7,8, 9))
+ 
+ #############
+ 
+ Final_file_kNN %>%
+  group_by(gender) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(gender), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Individual Donors- Gender Distribution 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+ 
+ 
+ 
+ #percentage
+  Final_file_kNN$gender <- fct_infreq( Final_file_kNN$gender)
+ Final_file_kNN %>%   
+   ggplot(aes(x = gender, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1", width = 0.3) + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25)  + ggtitle("First time Individual Donors- Gender Distribution  percentage 2000-2018") + labs( x= "Gender ", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+ 
+ 
+ 
+  Final_file_kNN %>%
+  group_by(Original_Gift_Source) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = reorder(as.factor(Original_Gift_Source), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors- Original Gift Source 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+  
+  #percentage
+   Final_file_kNN$Original_Gift_Source <- fct_infreq( Final_file_kNN$Original_Gift_Source)
+ Final_file_kNN %>%   
+   ggplot(aes(x = Original_Gift_Source, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25)  + ggtitle("First time Donors- Original Gift Source Percentage 2000-2018") + labs( x= "Original Gift Source", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+ 
+ 
+  
+   Final_file_kNN %>%
+  group_by(Solicitation_Method) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = reorder(as.factor(Solicitation_Method), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors- Solicitation Method used 2000-2018 ") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+ 
+   #percentage
+   Final_file_kNN$Solicitation_Method <- fct_infreq( Final_file_kNN$Solicitation_Method)
+    options(digits = 10)
+ Final_file_kNN  %>%   
+   ggplot(aes(x = Solicitation_Method, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25)  + ggtitle("First time Donors- Solicitation Method Percentage 2000-2018") + labs( x= "Solicitation Method", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+   
+   
+     Final_file_kNN %>%
+  group_by(Solicitation_Type) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = reorder(as.factor(Solicitation_Type), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors- Solicitation Type used 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+     
+    #percentage
+   Final_file_kNN$Solicitation_Type <- fct_infreq( Final_file_kNN$Solicitation_Type)
+  
+ Final_file_kNN  %>%   
+   ggplot(aes(x = Solicitation_Type, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25)  + ggtitle("First time Donors- Solicitation Type Percentage 2000-2018") + labs( x= "Solicitation Type", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+     
+     
+     
+Final_file_kNN %>%
+  group_by(Orig_Gift_Has_Prm) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Orig_Gift_Has_Prm), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors- Original Gift Has Premium 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+     
+   
+ #percentage
+   Final_file_kNN$Orig_Gift_Has_Prm <- fct_infreq( Final_file_kNN$Orig_Gift_Has_Prm)
+ Final_file_kNN  %>%   
+   ggplot(aes(x = Orig_Gift_Has_Prm, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1", width = 0.3) + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25)  + ggtitle("First time Donors- Original Gift Has Premium 2000-2018") + labs( x= "Original Gift Has Premium", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+
+
+
+
+     
+  Final_file_kNN %>%
+  group_by(Original_Gift_Mode) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = reorder(as.factor(Original_Gift_Mode), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors- Original Gift Mode of Payment 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+  
+   #percentage
+   Final_file_kNN$Original_Gift_Mode <- fct_infreq( Final_file_kNN$Original_Gift_Mode)
+ Final_file_kNN  %>%   
+   ggplot(aes(x = Original_Gift_Mode, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1", width = 0.3) + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25)  + ggtitle("First time Donors- Original Gift Mode of Payment 2000-2018") + labs( x= "Original Gift Mode of Payment", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+  
+            
+  
+                      
+  Final_file_kNN %>%
+  group_by(Account_Status) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = reorder(as.factor(Account_Status), counts), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors- Account Status 2000-2018") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+  
+   #percentage
+   Final_file_kNN$Account_Status<- fct_infreq( Final_file_kNN$Account_Status)
+ Final_file_kNN  %>%   
+   ggplot(aes(x = Account_Status, y= (..count..)/(sum(..count..))))  +
+   geom_bar(stat="count", fill = "coral1") + 
+   geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25)  + ggtitle("First time Donors- Account Status 2000-2018") + labs( x= "Account Status", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+  
+  
+   
+ 
+#########Expired 
+   a <-  Final_file_kNN %>% dplyr::summarise(totcount = n())
+  Final_file_exp <- Final_file_kNN %>% filter(Account_Status == "Expired")
+   
+         Final_file_exp %>%
+  group_by(Orig_Gift_Has_Prm) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Orig_Gift_Has_Prm), y = counts)) + geom_bar(stat = 'identity', fill = "coral1",width = .3)+ ggtitle("First time Donors Expired - Original Gift Has Premium") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+    
+         
+  #percentage
+   Final_file_exp$Orig_Gift_Has_Prm<- fct_infreq( Final_file_exp$Orig_Gift_Has_Prm)
+ Final_file_exp  %>%  
+   group_by(Orig_Gift_Has_Prm) %>%
+   ggplot(aes(x = Orig_Gift_Has_Prm, y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = 0.3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.25)  + ggtitle("First time Donors Expired - Original Gift Has Premium") + labs( x= "Orig_Gift_Has_Prm", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+              
+         
+          
+ 
+   
+          
+ #percentage
+   Final_file_exp$Solicitation_Type<- fct_infreq( Final_file_exp$Solicitation_Type)
+ Final_file_exp  %>%  
+   group_by(Solicitation_Type) %>% 
+   ggplot(aes(x = Solicitation_Type, y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = .3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.25)  + ggtitle("First time Donors Expired - Solicitation Type used") + labs( x= "Solicitation Type", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+          
+          
+             Final_file_exp %>%
+  group_by(Solicitation_Method) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Solicitation_Method), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors Expired - Solicitation Method used ") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+             
+ #percentage
+   Final_file_exp$Solicitation_Method<- fct_infreq( Final_file_exp$Solicitation_Method)
+ Final_file_exp  %>%   
+   ggplot(aes(x = Solicitation_Method, y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = .3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.25)  + ggtitle("First time Donors Expired - Solicitation Method used") + labs( x= "Solicitation Method", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+          
+             
+             
+                  
+  Final_file_exp %>%
+  group_by(Original_Gift_Source) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Original_Gift_Source), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors Expired - Original Gift Source") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+              
+  
+Final_file_exp$Original_Gift_Source <- fct_infreq(Final_file_exp$Original_Gift_Source)
+#percentage
+Final_file_exp %>%   
+   ggplot(aes(x = Original_Gift_Source, y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = .3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.25)  + ggtitle("First time Donors Expired - Original Gift Source") + labs( x= "Original Gift Source", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+   
+                  
+ 
+  Final_file_exp   %>%
+  group_by(gender) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(gender), y = counts)) + geom_bar(stat = 'identity', fill = "coral1", width = .3 )+ ggtitle("First time Donors Expired - Gender Distribution") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+  
+ 
+              
+              
+ 
+  #percentage
+  Final_file_exp %>%  
+    group_by(gender) %>%
+   ggplot(aes(x = gender , y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = .3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.25)  + ggtitle("First time Donors Expired - Gender Distribution") + labs( x= "Gender", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+  
+  
+  
+   
+  #######Active
+  a <- Final_file_kNN %>% dplyr::summarise(totcount = n())
+  Final_file_act <- Final_file_kNN_act %>% filter(Account_Status == "Active" | Account_Status == "Contributor")
+   
+  
+  Final_file_act %>%
+  group_by(Orig_Gift_Has_Prm) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Orig_Gift_Has_Prm), y = counts)) + geom_bar(stat = 'identity', fill = "coral1", width = .3)+ ggtitle("First time Donors Active - Original Gift Has Premium") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+    
+         
+  #percentage
+   Final_file_act$Orig_Gift_Has_Prm<- fct_infreq( Final_file_act$Orig_Gift_Has_Prm)
+ Final_file_act  %>%   
+   ggplot(aes(x = Orig_Gift_Has_Prm, y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = .3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.25)  + ggtitle("First time Donors Active - Original Gift Has Premium") + labs( x= "Orig_Gift_Has_Prm", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+      
+ 
+ 
+
+             
+         
+  Final_file_act %>%
+  group_by(Solicitation_Type) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Solicitation_Type), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors Active - Solicitation Type used ")   + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())  +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25)
+ 
+   
+ #percentage
+   Final_file_act$Solicitation_Type<- fct_infreq( Final_file_act$Solicitation_Type)
+ Final_file_act  %>%   
+   ggplot(aes(x = Solicitation_Type, y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = .3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.25)  + ggtitle("First time Donors Active - Solicitation Type used") + labs( x= "Solicitation Type", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+      
+  
+
+ Final_file_kNN$Solicitation_Type<- fct_infreq( Final_file_kNN$Solicitation_Type)
+ Final_file_kNN %>%
+  ggplot(aes(x = Solicitation_Type)) + geom_bar(aes(y=(..count)/sum(..count..)),stat = 'identity',fill = "coral3", width = .3) + ggtitle("First time Donors Active - Solicitation Type used") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + geom_text(aes(label = scales::percent((..count..)/(sum(..count..))), y =(..count..)/(sum(..count..))), stat = "count", vjust = -.25) + scale_y_continuous(labels = percent) 
+ 
+ 
+ 
+ 
+    
+          
+Final_file_act %>%
+  group_by(Solicitation_Method) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Solicitation_Method), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors Active - Solicitation Method used ") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+             
+ #percentage
+   Final_file_act$Solicitation_Method<- fct_infreq( Final_file_act$Solicitation_Method)
+ Final_file_act  %>%   
+   ggplot(aes(x = Solicitation_Method, y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = .3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.25)  + ggtitle("First time Donors Active - Solicitation Method used") + labs( x= "Solicitation Method", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank())
+          
+             
+             
+                  
+Final_file_act %>%
+  group_by(Original_Gift_Source) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(Original_Gift_Source), y = counts)) + geom_bar(stat = 'identity', fill = "coral1")+ ggtitle("First time Donors Active - Original Gift Source") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+              
+  
+Final_file_act$Original_Gift_Source <- fct_infreq(Final_file_act$Original_Gift_Source)
+#percentage
+Final_file_act %>%   
+    group_by(Original_Gift_Source) %>%
+   ggplot(aes(x = Original_Gift_Source, y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = .3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.15)  + ggtitle("First time Donors Active - Original Gift Source") + labs( x= "Original Gift Source", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+   
+                  
+ 
+  Final_file_act   %>%
+  group_by(gender) %>%
+  dplyr::summarise(counts = n()) %>%
+  ggplot(aes(x = as.factor(gender), y = counts)) + geom_bar(stat = 'identity', fill = "coral1", width =  0.3)+ ggtitle("First time Donors Active - Gender Distribution") +geom_text(aes(label=counts), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+              
+ 
+  #percentage
+  Final_file_act %>%   
+    group_by(gender) %>%
+   ggplot(aes(x = gender , y= (..count..)/a$totcount))  +
+   geom_bar(stat="count", fill = "coral1", width = 0.3) + 
+   geom_text(aes(label = scales::percent((..count..)/a$totcount), y =(..count..)/a$totcount), stat = "count", vjust = -.25)  + ggtitle("First time Donors Active  - Gender Distribution") + labs( x= "Gender", y= "Percent") +theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) 
+   
+  
+  ######Bivariate EDA
+   
+ Final_file_kNN %>%
+  ggplot(aes(x = Gift_Month, colour = Solicitation_Method)) + geom_density(alpha = 1) + ggtitle("Individuals -Solicitation Method by Months") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#F8766D", "#39B600",  "#9590FF", "#FF62BC", "#D89000", "#E76BF3", "#A3A500", "yellow", "black"   ))+ guides(colour = guide_legend(override.aes = list(size=3, alpha = 1))) 
+  
+ 
+  Final_file_kNN %>%
+  ggplot(aes(x = Gift_Year, colour = Solicitation_Method)) + geom_density(alpha = 1) + ggtitle("Individuals - Solicitation Method by Years") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#F8766D", "#39B600",  "#9590FF", "#FF62BC", "#D89000", "#E76BF3", "#A3A500", "black", "#00BFCD"  ))+ guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+ 
+
+  Final_file_kNN %>%
+  ggplot(aes(x = Gift_Month, colour = Solicitation_Type)) + geom_density(alpha = 1) + ggtitle("Individuals - Solicitation Type by Months") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#F8766D", "#39B600",  "#9590FF", "#FF62BC", "black" ))+ guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+  
+    Final_file_kNN %>%
+  ggplot(aes(x = Gift_Year, colour = Solicitation_Type)) + geom_density(alpha = 1) + ggtitle("Individuals- Solicitation Type by Years") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#F8766D", "#39B600",  "#9590FF", "#FF62BC", "chocolate" ))+ guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+  
+  
+   Final_file_kNN %>%
+  ggplot(aes(x = Gift_Month, colour = Original_Gift_Source)) + geom_density(alpha = 1) + ggtitle("Individuals - Original Gift Source by Months") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#00BFC4", "#39B600",  "#00C1A3", "#EA8331", "#3300CC", "#9590FF",  "#A3A500", "#C77CFF", "#00BFCD", "#F8766D","dark grey" , "#FF6A98", "yellow" , "black")) + guides(colour = guide_legend(override.aes = list(size=2, alpha = 1)))
+   
+      
+  Final_file_kNN %>%
+  ggplot(aes(x = Gift_Year, colour = Original_Gift_Source)) + geom_density(alpha = 1) + ggtitle("Individuals - Original Gift Source by Years") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#00BFC4", "#39B600",  "#EA8331", "#00C1A3",  "#3300CC", "#9590FF",  "#A3A500", "#C77CFF", "#00BFCD", "#F8766D","dark grey" , "#FF6A98", "yellow" , "black")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+   
+   
+   
+      Final_file_kNN %>%
+  ggplot(aes(x = Gift_Month, colour = Orig_Gift_Has_Prm)) + geom_density(alpha = 1) + ggtitle("Individuals - Original Gift has Premium by Months") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#F8766D", "#39B600")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+      
+         Final_file_kNN %>%
+  ggplot(aes(x = Gift_Year, colour = Orig_Gift_Has_Prm)) + geom_density(alpha = 1) + ggtitle("Individuals-Original Gift has Premium by Years") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#F8766D", "#39B600" )) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+  
+         
+  Final_file_kNN  %>%
+  group_by(gender) %>%
+  dplyr::summarise(Cost_rate_Gift_with_Premium = round((sum(if_else(Orig_Gift_Has_Prm == "Y",1,0))/n()*100),2)) %>%
+  ggplot(aes(x = gender, y = Cost_rate_Gift_with_Premium))+ geom_bar(stat = 'identity',fill = "coral3") + ggtitle("Cost rate- Gift Has Premium - Gender") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) +geom_text(aes(label=Cost_rate_Gift_with_Premium), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25) 
+     
+  
+  Final_file_kNN$Original_Gift_Source <- fct_infreq(Final_file_kNN$Original_Gift_Source)
+  Final_file_kNN  %>%
+  group_by(Original_Gift_Source) %>%
+  dplyr::summarise(Cost_rate_Gift_with_Premium = round((sum(if_else(Orig_Gift_Has_Prm == "Y",1,0))/n()*100),2)) %>%
+  ggplot(aes(x = Original_Gift_Source, y = Cost_rate_Gift_with_Premium))+ geom_bar(stat = 'identity',fill = "coral3") + ggtitle("Cost rate- Gift has Premium - Original_Gift_Source") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + geom_text(aes(label=Cost_rate_Gift_with_Premium), size = 2.5, vjust=-0.25) +labs( x= "Original Gift Source" )    
+    
+  
+    Final_file_kNN  %>%
+  group_by(Solicitation_Method) %>%
+  dplyr::summarise(Cost_rate_Gift_with_Premium = round((sum(if_else(Orig_Gift_Has_Prm == "Y",1,0))/n()*100),2)) %>%
+  ggplot(aes(x = Solicitation_Method, y = Cost_rate_Gift_with_Premium))+ geom_bar(stat = 'identity',fill = "coral3") + ggtitle("Cost rate Gift has Premium - Solicitation_Method") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) +geom_text(aes(label=Cost_rate_Gift_with_Premium), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25)      
+  
+    
+     Final_file_kNN  %>%
+  group_by(Account_Status) %>%
+  dplyr::summarise(Cost_rate_Gift_with_Premium = round((sum(if_else(Orig_Gift_Has_Prm == "Y",1,0))/n()*100),2)) %>%
+  ggplot(aes(x = Account_Status, y = Cost_rate_Gift_with_Premium))+ geom_bar(stat = 'identity',fill = "coral3") + ggtitle("Cost rate Gift has Premium - Account_Status") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) +geom_text(aes(label=Cost_rate_Gift_with_Premium), size = 2.5, position=position_dodge(width=0.2), vjust=-0.25)          
+         
+         ######Organizations
+ GOrg_root_03  %>%
+  ggplot(aes(x = Gift_Year, colour = Original_Gift_Source)) + geom_density(alpha = 1) + ggtitle("Organizations - Original Gift Source by Years") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("dark grey", "#39B600",  "#9590FF", "#FF62BC", "#D89000", "#00C1A3", "#A3A500", "#C77CFF", "#00BFCD", "#00B4F0", "#00BFC4", "#FF6A98" , "#EA8331", "#00C08B", "#7CAE00", "#00BAE0", "#EA8331")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+
+
+GOrg_root_03  %>%
+  ggplot(aes(x = Gift_Month, colour = Original_Gift_Source)) + geom_density(alpha = 1) + ggtitle("Organizations - Original Gift Source by Months") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#F8766D", "black",  "#9590FF", "#FF62BC", "#D89000", "#00C1A3", "#A3A500")) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+
+GOrg_root_03  %>%
+  ggplot(aes(x = Gift_Month, colour = Solicitation_Method)) + geom_density(alpha = 1) + ggtitle("Organizations - Solicitation Method by Months") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#F8766D", "#39B600",  "#9590FF", "#FF62BC" )) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+
+GOrg_root_03  %>%
+  ggplot(aes(x = Gift_Year, colour = Solicitation_Method)) + geom_density(alpha = 1) + ggtitle("Organizations - Solicitation Method by Years") + theme(plot.title = element_text(size =10),axis.text.x = element_text(size =7,angle = 45, hjust = 1),axis.title.x=element_blank()) + scale_color_manual(values=c("#F8766D", "#39B600",  "#9590FF", "#FF62BC" )) + guides(colour = guide_legend(override.aes = list(size=3, alpha = 1)))
+
+
+ sqldf("select count(*) from Final_file_kNN where  gender = 'female'  and account_status = 'Expired'")
+ sqldf("select count(*) from Final_file_kNN where  account_status = 'Expired'")
+
+```
+
+
+ 
+
+
+
+
+
+
+ 
