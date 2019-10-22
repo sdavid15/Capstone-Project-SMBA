@@ -1,0 +1,172 @@
+---
+title: "WOSU Donor Data base analysis & Segmentation"
+author: "Shyni David"
+date: "3/1/2019"
+output: html_document
+---
+###Introduction
+WOSU’s primary source of funding comes from individual community support. With over 27,000 donors providing annual support equaling approximately $4 million with additional major and planned gift support, the development team seeks to develop a deeper understanding of our constituency.
+Currently, the development teams work out of multiple databases and static documents with a treasure trove of disparate data about our donors. From an analytics needs assessment, WOSU is at the base level of analytics and need to lay the foundation in order to further utilize our data for targeted fundraising approaches, but also to eventually build toward predictive modelling of future WOSU donors. 
+
+----In the winter of 2018, in our kick off meeting with WOSU team, Rob Walker said quote unquote "We do not know who our donors are. We would like to know who they are. " 
+
+###Objective
+WOSU’s primary source of funding comes from individual community support. Their development team is seeking to develop a deeper understanding of  the constituencies by using data analytics in understanding the past and projecting the future. When donors approach philanthropy, their gifts are thoughtful and has intended purposes and seek a return on their philanthropic investments.  
+A pertinent question is  why do they give to WOSU? WOSU has a wide variety of fundraising programs through events, radio, TV , web, emails and personal contact.  Which of these tasks contribute to increased giving? Which tasks detract from the fundraising success? What is the spread of the donors across  the country? What should the campaign goal be? What are the factors for their success?  
+The exploratory data analysis will be used to investigate the trends. The statistical tools and techniques will help to interpret the data and build models to increase the predictability, thus empowering WOSU to strategically invest their resources in increasing the scalability and sustainability of donations.
+
+
+###Dataset
+There are 3 Datasets provided by WOSU:  
+1.	2000-2009 – 33740 observations (represents Original Donations), 22 variables/attributes  
+2.	2010-2018- 36361 observations(represents Original Donations), 22variables/attributes  
+3.	Event files – 22 Text file corresponding to some events since 2014 with the names  and date and other  related information.   
+
+
+#####Importing the necessary libraries
+
+```{r results = 'hide', message = FALSE, warning = FALSE}
+#install.packages("MASS")
+library(MASS)
+#install.packages("tidyverse")
+library(tidyverse)
+#install.packages("sqldf")
+library(sqldf)
+#install.packages("lubridate")
+library(lubridate)
+#install.packages("dplyr")
+library(dplyr)
+#install.packages("plyr")
+library(plyr)
+#install.packages("readxl")
+library(readxl)
+#install.packages("ggplot2")
+library(ggplot2)
+library(scales)
+library(stringr)
+#install.packages("USAboundaries")
+library(USAboundaries)
+#install.packages("gender")
+library(gender)
+#install.packages("caret")
+library(caret)
+ library(glmnet)
+library(gridExtra)
+#install.packages("VIM")
+library(VIM)
+library(lubridate)
+library(grid)
+#install.packages("XML")
+library(XML)
+#install.packages("httr")
+library("httr")
+#install.packages("VIM")
+library(VIM)
+#install.packages("car")
+library(car)
+#install.packages("rpart.plot")
+library(rpart.plot)
+library(caretEnsemble) # for Stacking
+#install.packages("doParallel")
+library(doParallel)  # parallel processing
+#install.packages("nnet")
+library(nnet) # for multinomial logit
+#install.packages("NeuralNetTools") 
+library(NeuralNetTools)
+library(ggplot2)
+library(scales)
+ 
+
+load("~/Desktop/FISHER SMB-A/capstone/SMB-A Capstone Project/Files 042619.RData")
+```
+
+
+
+
+Consideration stages- using Multinomial Logistic Regression
+```{r}
+# Re-level the Current variable to use 'unknown' as reference
+ y_final$Original_Gift_Source <- relevel(as.factor(y_final$Original_Gift_Source), ref = "new year")
+ 
+cs1 <- multinom(Original_Gift_Source ~ Original_Gift_Mode , data = y_final)
+cs2 <- multinom(Original_Gift_Source ~ Orig_Gift_Has_Prm +gender, data = y_final)
+
+y_final$Solicitation_Type <- relevel(as.factor(y_final$Solicitation_Type), ref = "Expired")
+cs3 <- multinom(Original_Gift_Source ~ Solicitation_Type, data = y_final)
+
+y_final$Solicitation_Method <- relevel(as.factor(y_final$Solicitation_Method), ref = "Other")
+cs4 <- multinom(Original_Gift_Source ~ Solicitation_Method, data = y_final)
+```
+
+
+```{r}
+# calculate p-value
+z1 <- summary(cs1)$coefficients/summary(cs1)$standard.errors
+p1 <- (1 - pnorm(abs(z1), 0, 1)) * 2
+ # calculate odds ratio
+knitr::kable(exp(coef(cs1)))
+knitr::kable(p1)
+
+z2 <- summary(cs2)$coefficients/summary(cs2)$standard.errors
+p2 <- (1 - pnorm(abs(z2), 0, 1)) * 2
+ # calculate odds ratio
+ knitr::kable(exp(coef(cs2)))
+knitr::kable(p2)
+
+
+z3 <- summary(cs3)$coefficients/summary(cs3)$standard.errors
+p3 <- (1 - pnorm(abs(z3), 0, 1)) * 2
+ # calculate odds ratio
+ knitr::kable(exp(coef(cs3)))
+knitr::kable(p3)
+
+
+z4 <- summary(cs4)$coefficients/summary(cs4)$standard.errors
+p4 <- (1 - pnorm(abs(z4), 0, 1)) * 2
+ # calculate odds ratio
+ knitr::kable(exp(coef(cs4)))
+knitr::kable(p4)
+```
+
+ 
+
+
+Prescriptive Analysis -Differences in Differences- MEMBERSHIP DRIVE Comparing period 2000-2009 and 2010-2018
+```{r}
+set.seed(1234) 
+Final_file_kNN_diff <- Final_file_kNN %>% mutate(Period_post = ifelse(Gift_Year >= 2010, 1, 0))
+
+Final_file_kNN_diff_01 <- Final_file_kNN_diff %>% mutate(Treat = ifelse(Period_post ==0 & Original_Gift_Amount >=60, 1, ifelse(Period_post == 1 & Original_Gift_Amount >=60, 1, 0)))
+
+Diff_WOSU <- lm(log(Original_Gift_Amount) ~ Treat + Period_post + Treat * Period_post, data = Final_file_kNN_diff_01 )
+ 
+summary(Diff_WOSU)
+
+#The coefficient of TREAT *POST = 0.232445 is the Difference in Difference causal effect on membership drive.(based on significance)
+
+```
+
+
+Prescriptive Analysis -Differences in Differences- MEMBERSHIP DRIVE Comparing period   2000-2015 & 2016-2018
+```{r}
+set.seed(1234) 
+Final_file_kNN_diff1 <- Final_file_kNN_01 %>% filter(Gift_Year >= 2000)
+
+Final_file_kNN_diff1_01 <- Final_file_kNN_diff1  %>% mutate(Period_post = ifelse(Gift_Year >= 2016, 1, 0))
+
+Final_file_kNN_diff1_02 <- Final_file_kNN_diff1_01 %>% mutate(Treat = ifelse(Period_post ==0 & Original_Gift_Amount >=60, 1, ifelse(Period_post == 1 & Original_Gift_Amount >=60, 1, 0)))
+
+Diff1_WOSU <- lm(log(Original_Gift_Amount) ~ Treat + Period_post + Treat * Period_post, data = Final_file_kNN_diff1_02 )
+ 
+summary(Diff1_WOSU)
+
+```
+
+
+
+
+
+
+
+
+ 
